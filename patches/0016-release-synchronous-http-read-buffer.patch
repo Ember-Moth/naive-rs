@@ -1,0 +1,22 @@
+--- a/src/net/http/http_cache_transaction.cc
++++ b/src/net/http/http_cache_transaction.cc
+@@ -334,6 +334,8 @@
+   read_buf_len_ = buf_len;
+   int rv = TransitionToReadingState();
+   if (rv != OK || next_state_ == STATE_NONE) {
++    if (rv != ERR_IO_PENDING)
++      read_buf_ = nullptr;
+     return rv;
+   }
+ 
+@@ -342,6 +344,10 @@
+   if (rv == ERR_IO_PENDING) {
+     DCHECK(callback_.is_null());
+     callback_ = std::move(callback);
++  } else {
++    // Match the async completion path: callers may reclaim owned storage
++    // as soon as the final IOBuffer reference is released.
++    read_buf_ = nullptr;
+   }
+   return rv;
+ }

@@ -1,0 +1,28 @@
+--- a/src/net/ssl/ssl_config_service.h
++++ b/src/net/ssl/ssl_config_service.h
+@@ -136,6 +136,13 @@
+   // Returns the host-specific EchMode for `hostname`.
+   virtual EchMode GetEchMode(std::string_view hostname) const = 0;
+ 
++  // Embedders with hostname-specific trust/ECH policy can forbid aliasing
++  // an existing H2/H3 connection to another hostname. Same-host reuse remains
++  // governed by the normal pool keys and TLS session policy.
++  virtual bool CanPoolConnection(std::string_view, std::string_view) const {
++    return true;
++  }
++
+   // Returns true if connections to |hostname| can reuse, or are permitted to
+   // reuse, connections on which a client cert has been negotiated. Note that
+   // this must return true for both hostnames being pooled - that is to say this
+--- a/src/net/spdy/spdy_session.cc
++++ b/src/net/spdy/spdy_session.cc
+@@ -728,6 +728,9 @@
+   // Pooling is prohibited if the server cert is not valid for the new domain,
+   // and for connections on which client certs were sent. It is also prohibited
+   // when channel ID was sent if the hosts are from different eTLDs+1.
++  if (!ssl_config_service.CanPoolConnection(old_hostname, new_hostname))
++    return false;
++
+   if (IsCertStatusError(ssl_info.cert_status))
+     return false;
+ 

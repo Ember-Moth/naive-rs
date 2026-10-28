@@ -13,3 +13,5 @@
 0013-network-context-options.patch
 0014-android-archive-link.patch
 0015-connect-half-close.patch
+0016-release-synchronous-http-read-buffer.patch
+0017-scope-cross-host-connection-pooling.patch

@@ -12,7 +12,9 @@
 //! unsupported transports return an error. Explicit close aborts both directions.
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod browser;
 mod buffer;
+pub mod certificate;
 mod client;
 mod config;
 mod error;
@@ -24,6 +26,10 @@ pub use network::NetworkConfig;
 pub use observability::{ClientStats, ConnectionInfo, Event, Observer, Operation};
 
 pub use buffer::{ReadChunk, buffer_stats};
+pub use certificate::{
+    CertificateCancellation, CertificateDecision, CertificateInfo, CertificateVerification,
+    CertificateVerifier,
+};
 pub use client::NaiveClient;
 pub use config::{Config, EchMode, EchOptions, Http2Options, QuicCongestionControl, QuicOptions};
 pub use error::Error;

@@ -10,6 +10,9 @@ All listed APIs and build/distribution workflows are implemented. ABI 4 adds
 evidence is recorded separately in `owned-io-results.json`. Ten native
 targets pass compilation, final Rust linking and packaging. Windows configuration
 is supplied with native builds explicitly unverified, as requested.
+That ten-target result belongs to the recorded ABI 4 snapshot. The newer ABI 6
+certificate/ECH implementation has separate macOS arm64 runtime evidence; it
+has not yet repeated the full cross-platform build matrix.
 
 Runtime results in the first four rows and the first P1 batch below refer to the
 snapshot recorded in `functional-results.json`. Subsequent P2 and platform work
@@ -26,7 +29,8 @@ remain tied to their recorded revisions; this runtime pass does not replace them
 | P1 | Retain client while clearing connections | Implemented; verified on macOS arm64 | Existing streams fail, subsequent connections work, reset/shutdown races finish, pending UDP completion is canceled, HTTPS/QUIC reconnect tests pass |
 | P1 | Platform support | Build recipes implemented for all 12 targets | Native build, Rust link and package pass for all 10 macOS/iOS/Android/Linux targets; both Windows native targets remain explicitly unverified |
 | P1 | Native binary distribution | Package/fetch and release workflow implemented; final macOS source snapshot verified | Deterministic packaging, install/replace, 12 rejection cases and independent Rust consumer link pass; no remote release published |
-| P2 | ECH | Static lists, HTTPS query names and strict/opportunistic/disabled policies implemented | Native/Rust linking passes on all 10 verified targets; runtime handshake fixtures were not run |
+| P2 | ECH | Static lists, HTTPS query names and strict/opportunistic/disabled policies for Naive; per-host rules for direct clients | ABI 6 adds successful loopback handshakes on TLS/H1/H2/H3/WSS and Naive HTTPS/QUIC, authenticated retry and strict rejection; see `tls-policy-runtime-results.json`. Earlier cross-platform evidence is compile/link only |
+| P2 | Certificate verification callback | Asynchronous Rust UseDefault/Accept/Reject decisions with owned DER metadata, cancellation and safe late completion | ABI 6 host tests cover all direct transports, Naive HTTPS/QUIC, panic/drop rejection, concurrent operations and policy isolation; see `tls-policy-runtime-results.json` |
 | P2 | Network tuning | HTTP/2 windows, QUIC initial windows and local congestion selection implemented with validation | Final native build and Rust linking pass on all 10 verified targets |
 | P2 | Early connect and explicit handshake | Early handles, explicit handshake and automatic IO readiness implemented | Fixtures compile and link on all 10 verified targets; cancellation/close paths reviewed, no new runtime execution |
 | P2 | Stream read/write deadlines | Native timers, independent deadlines and weak concurrent deadline controller implemented | macOS arm64 owned-read and backpressured-write deadlines execute successfully, including owner return and stream termination; earlier cross-platform evidence is compilation/linking |
@@ -35,8 +39,12 @@ remain tied to their recorded revisions; this runtime pass does not replace them
 | P2 | Completion runtime adapters | Separate monoio and compio crates; no mandatory Tokio dependency | Four ordinary tests and one H2/H3 interop test per actual monoio/compio runtime pass on macOS arm64; local buffer access and Drop stay on the caller thread |
 | P2 | Directional close | Opt-in H2/H3 FIN; explicit Unsupported on other transports | macOS arm64 runtime tests pass for FIN/response, empty and large payloads, repeated/canceled FIN waits and mixed write ordering, through core and both adapters |
 
-General UDP forwarding and a generic HTTP client remain outside the selected
-scope. Independent write close is now exposed for H2/H3 CONNECT streams. Custom UDP dialing controls the outer QUIC
+General UDP forwarding remains outside the selected scope. A later extension
+adds [direct native TLS, HTTP and WebSocket clients](browser-client.md) in ABI 5;
+its host validation is separate from the earlier cross-platform snapshots.
+ABI 6 adds [certificate callbacks and direct ECH rules](tls-policy.md); its
+runtime evidence remains separate from the earlier ABI 4 platform builds.
+Independent write close is now exposed for H2/H3 CONNECT streams. Custom UDP dialing controls the outer QUIC
 socket; exposed Naïve streams continue to carry TCP payloads.
 
 ## Verified commands for the first P1 batch (2026-10-28)

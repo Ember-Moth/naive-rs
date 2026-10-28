@@ -1,0 +1,237 @@
+{
+  "date": "2026-10-28",
+  "base_commit": "80bd3e35e03bcdec77dee389d8b588f4688e0a9d",
+  "uncommitted_changes": true,
+  "scope": "Client-local certificate verification callbacks, direct per-host ECH, and real successful TLS/ECH handshakes",
+  "target": "aarch64-apple-darwin",
+  "build_host": "macos-aarch64",
+  "native": {
+    "abi": 6,
+    "fingerprint": "3f48a2d3fb18a31992fcfdf52694fc673e70dd6f938ef8a81cb698b03b19c278",
+    "archive_sha256": "09c2ab08501d0a262bba4ebb5d4a855b37a9db0efeb17b983da0685af1a33c24",
+    "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+    "upstream": {
+      "abi": 6,
+      "chromium": "154.0.8037.49",
+      "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+      "tag": "v154.0.8037.49-5",
+      "url": "https://github.com/klzgrad/naiveproxy.git"
+    }
+  },
+  "fixture": {
+    "source": "tests/browser_fixture/security.go",
+    "binary_sha256": "c38451d7c7eb7f7bb5da3e70941d3d1a8bc20482593debfe76771447ab4f2631",
+    "implementation": "Go crypto/tls ECH server with an ephemeral X25519 key; H1/H2/H3 origins, WSS and authenticated CONNECT echo",
+    "network": "loopback only",
+    "keys": "Private ECH key kept in server memory; certificate private key in a removed temporary directory",
+    "server_confirmed_ech": {
+      "handshakes": 100,
+      "alpn": [
+        "h2",
+        "h3",
+        "http/1.1"
+      ]
+    }
+  },
+  "validation": {
+    "browser_and_security": {
+      "command": "python3 tests/browser.py --repeat 5",
+      "reproduce_from_source": "python3 tests/browser.py --build-fixture --repeat 5",
+      "rounds": 5,
+      "browser_tests_per_round": 12,
+      "security_tests_per_round": 13,
+      "passed": 125,
+      "failed": 0,
+      "ignored": 0,
+      "source_hashes_verified": true,
+      "log": "target/browser-runtime/tests.log"
+    },
+    "naive_regressions": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 python3 tests/owned_io.py --repeat 3 --output target/certificate-ech-naive-regression",
+      "rounds": 3,
+      "passed_test_executions": 96,
+      "same_native_archive": true,
+      "coverage": "owned buffers, monoio/compio runtime ownership, H2/H3 CONNECT, cancellation and half-close",
+      "receipt": "target/certificate-ech-naive-regression/results.json"
+    },
+    "workspace": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 cargo test --workspace --all-features --locked",
+      "passed": 57,
+      "failed": 0,
+      "ignored": 34,
+      "ignored_note": "Browser/security and Caddy CONNECT cases run separately above. The existing AIA-specific fixture remains excluded.",
+      "log": "target/certificate-ech-workspace-final.log"
+    },
+    "no_default_features": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 cargo test -p naive-rs --no-default-features --test owned --locked",
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0,
+      "log": "target/certificate-ech-no-default-final.log"
+    },
+    "futures_io_only": {
+      "result": "passed",
+      "log": "target/certificate-ech-futures-final.log"
+    },
+    "clippy": {
+      "toolchain": "Rust 1.99.1",
+      "scope": "workspace, all targets/features, warnings denied",
+      "result": "passed",
+      "log": "target/certificate-ech-clippy.log"
+    },
+    "distribution": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 python3 tests/artifact_distribution.py",
+      "result": "aarch64-apple-darwin: deterministic package, install/replace, 12 rejection cases, and real Rust consumer link passed",
+      "consumer": "Independent Rust project links certificate callback/completion/cancellation, ECH configuration, and native TLS/HTTP/WS/Naive APIs with default features disabled; executable not run.",
+      "log": "target/certificate-ech-artifact-final.log"
+    },
+    "other_checks": [
+      "17-patch queue applies to pinned upstream",
+      "C11 header compile; 304-byte stream-info and 8-pointer hook-table layout assertions",
+      "Rust formatting, Python compile, network-profile parser unit tests (3), actionlint and Git whitespace checks"
+    ]
+  },
+  "security_test_cases": [
+    "certificate_decisions_apply_to_tls_http_h3_and_wss",
+    "certificate_callback_applies_to_naive_https_and_quic",
+    "certificate_callback_can_finish_on_another_thread",
+    "certificate_callback_drop_and_panic_fail_closed",
+    "pending_verification_cancels_and_late_results_are_safe",
+    "cancelling_http_does_not_abort_another_tls_verification",
+    "ech_rules_canonicalize_absolute_dns_names",
+    "direct_static_ech_succeeds_on_tls_http_h3_and_wss",
+    "direct_ech_dns_discovery_uses_host_resolver_and_actual_port",
+    "naive_ech_succeeds_with_static_and_dns_configs",
+    "ech_retry_authenticates_the_public_name_then_accepts_the_inner_name",
+    "ech_strict_does_not_fall_back_when_server_has_no_ech",
+    "cross_host_pooling_cannot_bypass_certificate_or_ech_policy"
+  ],
+  "certificate_contract": [
+    "Native verification precedes the callback; the callback receives owned peer/verified DER chains, hostname, original result/status, public-root status, OCSP and SCT data",
+    "UseDefault preserves native verification; Reject fails; Accept overrides certificate errors only and never promotes private trust to public-root trust",
+    "Completion can run on another thread; drop/panic rejects; cancellation/reset/deadline/shutdown release native work and late completion is harmless",
+    "Completed tokens are not marked canceled; a held completion does not retain the client callback after shutdown",
+    "Canceling one HTTP request preserves another active TLS verification"
+  ],
+  "ech_contract": [
+    "Static ECHConfigList and host-resolver HTTPS discovery succeed on direct TLS/H1/H2/H3/WSS and Naive HTTPS/QUIC",
+    "Client metadata and server ECHAccepted confirm successful encryption and application traffic",
+    "Authenticated retry verifies the public name and then the inner name",
+    "Strict rejects a server without ECH even if the certificate callback accepts; Opportunistic and Disabled retain their explicit policies",
+    "Direct host rules use actual destination ports for DNS, normalize trailing dots, and follow the new host on redirects",
+    "Explicit direct ECH rules or a certificate callback disable cross-host H2/H3 coalescing while preserving same-host reuse"
+  ],
+  "reproduced_fixes": [
+    {
+      "problem": "A canceled HTTP request could leave a speculative TLS job waiting indefinitely for its host certificate decision",
+      "fix": "When all direct operations are gone, abort pending host work; do not abort while another TLS/HTTP/WS operation is alive"
+    },
+    {
+      "problem": "A trailing dot in the configured ECH hostname caused the undotted target to miss the rule and connect without ECH",
+      "fix": "Normalize configured and matched DNS names, including the trailing dot"
+    }
+  ],
+  "limits": [
+    "Runtime execution is macOS arm64. ABI 6 has not repeated the full cross-platform build matrix.",
+    "Successful DNS discovery uses the host resolver callback; native OS DNS discovery was not exercised end-to-end by this fixture.",
+    "No browser application, emulator, VM or system trust-store modification.",
+    "No real Chrome baseline or new performance benchmark; successful ECH is not proof of full Chrome fingerprint equivalence.",
+    "CI integration is updated locally; changes remain uncommitted and have not run in hosted CI."
+  ],
+  "source_sha256": {
+    ".cargo/config.toml": "a780deb3ca43789a5e6db9bb5161616e93a0dd09b0b53fc120149e948cb4e5b3",
+    "Cargo.lock": "baad4f52b639a098de2fdadc487a881305cd271923c74c727973cb155547b021",
+    "Cargo.toml": "dbb13c807122ee48f6378c83ee39761a1d746cf143d2c7d54d34d363fb068945",
+    "crates/naive/Cargo.toml": "45760488374842ed694386c212f99cc341dbc0e771f5d2b85a5f4eb66c9ffa9c",
+    "crates/naive/benches/transport.rs": "7a4d5b009d1461521f9401dc3aea3696fb538f0848eb465bdb5e6d8d0edf50b9",
+    "crates/naive/src/browser/websocket.rs": "a211c4f545fb407bff4e1dd35e8f8134636fa9324b2b064f0becb6cbe7ce8541",
+    "crates/naive/src/browser.rs": "2df3cdf7c428ea8eeed4e7cfaae47c4fe42aa01c0b5eac73e349a3572222aa58",
+    "crates/naive/src/buffer.rs": "6b2eadc87df51b7ac79cd5bc8ee6e0293af506ae57e189fb8d7564354e2d7cc6",
+    "crates/naive/src/certificate.rs": "65cca34ab5216dd96fe1449cdfa8fab105f718610090271a966bf1429ceac0c8",
+    "crates/naive/src/client.rs": "84b9aa53a9008716378aa9b3c3c9559a4b2cbdb532d22b5ee3a6ce834d3594b3",
+    "crates/naive/src/config.rs": "bed8dbc09d949e01767620db7e50ca10133dd8aba877221b7ed1f8d19a952f91",
+    "crates/naive/src/error.rs": "6a5b56d4afc1bb9dd1dc477a02190bd8c08518ec499e53cb4187ea18228951e3",
+    "crates/naive/src/lib.rs": "7e74e80896d717270da95637e5e8fe10e240b9eed15eeacde1eae47c8a94fb92",
+    "crates/naive/src/network.rs": "db52d361bea1bf0854f8168fefdcd4e1474fa04c8e2a6a0f1a99328e531ede31",
+    "crates/naive/src/observability.rs": "c2348483135fcb44742950e0a483f5f1b28b68046d65290473374085f9f521db",
+    "crates/naive/src/owned.rs": "f3c71070167b7bdd58185e0e6075af0e3618e7161155bc69e9f74940fa5066fe",
+    "crates/naive/src/stream.rs": "022784c23b1cc0f5a8e66c0f9fcb758492b467f17fbeeccf1a219391ec52d511",
+    "crates/naive/tests/advanced.rs": "dbd77b10e8c95fcdb6cd0bd977d536d53915946a82ecca5fc2de301f973c017b",
+    "crates/naive/tests/aia.rs": "6c22c039d1bde88a4a6fac9495f0ac5cbbe58e44b921f523b5301bb57287e8e7",
+    "crates/naive/tests/browser.rs": "afe931af2164f464f2040f218e661e2f010019a2486e3948432c6fd20ddcbcef",
+    "crates/naive/tests/interop.rs": "bc5f0da0e59d43acef4147469f00680bd5f98b6ef359b7b6a4cd8f8d0c0f2649",
+    "crates/naive/tests/network.rs": "ed41b30ed7cf10f6803e26b798329baf6b7303378a9fe96d11ab70a0b29cbece",
+    "crates/naive/tests/owned.rs": "75ec23a019b0f6f85bfce3d578f5bb6d7b68bcadcba2e40b68c66583dc51bea9",
+    "crates/naive/tests/performance_contracts.rs": "03915d0e1f839e44b023b04999eb21fcfbe11b31a6895d94296f1126d8fe409f",
+    "crates/naive/tests/runtime.rs": "1d1b0265c3d3269a7881a268ba7d68551565633185454025450e4de71c4e63f0",
+    "crates/naive/tests/security.rs": "c0c22a1e9af47457c0111f21b45980a18273cb81e084a4ade511cb0f6169febd",
+    "crates/naive/tests/streams.rs": "461cfeca01fe3a1a3d287d353c31602ed0471ecb63ddcc421f7c94e29671c81c",
+    "crates/naive-compio/Cargo.toml": "a32ed38e12ca293a10558cc9ef47052aa6c90d9ccc620664b8b0c1ae78e3b8ec",
+    "crates/naive-compio/src/lib.rs": "7b8c9a70188a7675e7992653cca4827ca9cf742cda8d9e8f99f0f9355b0b0e19",
+    "crates/naive-compio/tests/runtime.rs": "6300d35a65ab572bbc37122d116e2ced5ec85dee28178cf201bab3a64cc4954b",
+    "crates/naive-monoio/Cargo.toml": "6f4f8f45129c4b6f3723e7f2476e63042e50dbae8c4220e8b9753ddeeccceab7",
+    "crates/naive-monoio/src/lib.rs": "b63d12feeb4270588e3246cd9ba006906ff5348276642d8d31e7531ff23c14a1",
+    "crates/naive-monoio/tests/runtime.rs": "c9951c4ebd6843c898601db3e51e1ece61d1e656f07fbf8b4f454efad5117a9b",
+    "crates/naive-sys/Cargo.toml": "7e2e620480046bb90814b802cbcd9cb3c2e72efe3791c60cefb505ddf053eb42",
+    "crates/naive-sys/build.rs": "ec0232182310cfdaebcc84b8967458256c096102a5cdb4c7ef44df931ea28813",
+    "crates/naive-sys/native-version.json": "e44c6fa12bd94c88bb97a02ac1f5453b7157995f6c017d49116bac89305d22b9",
+    "crates/naive-sys/src/lib.rs": "1242cbfd1535e4abfa4979e725446259e9b3600c5a0505248bb07fa3290fe878",
+    "native/BUILD.gn": "111e579e5a5a47aa30626255369823b0a03b8b5739ea9b119831991da61c83bb",
+    "native/args.gn": "f648e17cd7bc58389bd932b33e465d34fb5c5eec1af2aa33631d7962b9be7d7d",
+    "native/bridge.cc": "3c37b9cc99743147b5ffe04e516d107269c5ec4702584d6d531d4e1a660c71d7",
+    "native/browser.cc": "9e30e52885f044951d615c561dfc9aaa02149a25236c4e29443316e454e3dc85",
+    "native/browser.h": "a9fbf2b03dcbf12ec637ffbc728a32419e4a088c2e03e3bd81e7816dcfe787af",
+    "native/buffers.h": "a8a443d29992c3be846f533f608657a9b6cee3b78d7fc0393fe50c61be85d271",
+    "native/cert_verifier.cc": "d3996d1d50fa2b44357d2124b087eb06b51898642fde2f9bfbbbc7029a6fc844",
+    "native/cert_verifier.h": "403a5bed989f3e9f49d6fa4bf6622aad050f44a5340b090651b16f5924058044",
+    "native/ech.cc": "6e40d45b14f892fb31ecf6e800a39db82ccafdd5abb3b04464de90f1a5438f44",
+    "native/ech.h": "dbca918ea5703494ec5a752c13ec24a281ee2fbb2bd55c7e102baf3833a26bae",
+    "native/include/naive.h": "c4b07ade0527b916a5a5d469f58e1e8bd0cf146c50f21b486a66486d86525aae",
+    "native/include/naive_network.h": "abc9fcc4e4e64f3c09c30c20f7a6fa1e2864d9d3ed3c313564105e47cb9ad7e9",
+    "native/link_probe.cc": "d2c523cb18666102c6698d2db1cecb4a72da38929dc41e2b7376b645dc88ec85",
+    "native/network.cc": "5724120d6e1000be951a3439b5e675fb429edcee99cf8cbb6011294f40d9d0c9",
+    "native/network.h": "8d2db66b81899c3a6e51d0780adce2388430154a612956c922c27978c1e15e74",
+    "patches/0001-extract-network-context.patch": "da7abd6bd73f13924d6b702c1ccb89b69bca04ff82c6ba05705fabfb415757ae",
+    "patches/0002-library-build.patch": "959ae239be284029d0a38e678bcb492d2cfc1e192785654401d8c06e6be23d6a",
+    "patches/0003-lazy-padding-buffers.patch": "cc4cb7fb56dcbd474774d7dfd85f0baa2b16d16592a6f8366159217ea1f67897",
+    "patches/0004-cache-compiled-root-data.patch": "db43b2920a96b083b88a91820d02eae59d1b794bb821ad342b01f86d8467280f",
+    "patches/0005-context-network-hooks.patch": "fde096d1a8dc1d708eace137158de1df019c2607282df7084f168f9fc05c9527",
+    "patches/0006-cancel-abandoned-preamble.patch": "39b203edfe6d6cf103cc00a521c5851ade6a54d70e695ecf6f3337a3c6bfc2dd",
+    "patches/0007-ios-extra-roots.patch": "43c3eff81566f79172bb2f60ca01afb645dfd397e9519a9891b606225a713288",
+    "patches/0008-ios-certificate-network-policy.patch": "a25dd20c9b44342690052d4d77c6036f609a43c2d0d2fae1072e59d37a85bed0",
+    "patches/0009-ios-user-agent-platform.patch": "deafcb80ffafb12dbd87d4db2cb46332df3a7e28f1424d437adf29de42c615ac",
+    "patches/0010-ios-uppercase-symbol.patch": "a405875d5ae4f38342bf91c9317fec1042bd29ce62d8f0d96ebe05c409bb04e6",
+    "patches/0011-android-macos-host.patch": "fb3fef58d18096aef9daaf8f94ff3c8bbaa27a98a7aa74ac30240332d3630906",
+    "patches/0012-proxy-connection-info.patch": "088293bdc02f422a71687f0a11dde6dd1fe0d82c2cc271979790c92bcd11ca1f",
+    "patches/0013-network-context-options.patch": "1e43f89df99acac62cedeec60087f8a0775ed9b443bb511768e865c43bfa96bd",
+    "patches/0014-android-archive-link.patch": "d200df61ff409e1bbe544ccd10f3a96548e0fd0e2eb50876b216e16dabd8cc82",
+    "patches/0015-connect-half-close.patch": "bd06650a37ea071541855e2e2453c4c7386f207aab589c08d5d4f022fbd2d6c3",
+    "patches/0016-release-synchronous-http-read-buffer.patch": "fb10582ba449a3c62a940d0454db66dc339e4231ccddf0c07e4f5e6da1990f68",
+    "patches/0017-scope-cross-host-connection-pooling.patch": "f420d44cd8e06f4d16829d700c8fbf5473ed93bf188d69e325a98c727c36103f",
+    "patches/series": "fd67224b77802ffac69cc9fa9d993d3764b189067007d0fad245c6babb82faaf",
+    "tests/aia_interop.py": "9fe6ff2b2e875950c28204904c784ab0d9bc80fbf1f912b836329045b71946ea",
+    "tests/artifact_distribution.py": "3a72c661a58772580d00886c38af4a77cfac1f85775ce3e1f7570ba85d2df515",
+    "tests/browser.py": "ebfe0ef4eedf8fe3497411fbd7598f4f34dc83cb05184af376c39601066b9758",
+    "tests/build_caddy.py": "83aecc65eb6b688148862559cd91bd92b4fea1eb6cf72a6d55fc105c0169c31c",
+    "tests/caddy/go.mod": "14d0429465a16b4b727d19347816c1c185a95ec97632e658baa21f2a3570f615",
+    "tests/caddy/go.sum": "e8c745a01765498bfd9764c429e6fbd53431b8aba8c83ce772ab2ef7f4265c62",
+    "tests/interop.py": "98fe46613da6e093e90879830b57abe11e32cc319c07b8131b5e91855b3ec296",
+    "tests/network_profile.py": "2c4d4f01907f2d5c43f17bcec1bba0c87708ccaf34ca319ea1f735ae1824d3e7",
+    "tests/owned_io.py": "8107afbeb29bb8a0349ac279820695d383a627694ff08532a6b58485aeb75e86",
+    "tests/perf/build_reference.py": "ce0eb6b950566037947268ec20efe2e7d8cfaebb47be8c83067dfea1588b7ad0",
+    "tests/perf/run.py": "ed17f7fba9118b8b37fcff71b629db6193614e27ea4e9ee2b29f7fed77bc2850",
+    "tests/perf/summarize.py": "1505c1c329f0411225799419bfa4966d015c6a7fb6117bd6fc3ec1904a7a37fd",
+    "tests/support/completion_cases.rs": "db1df39144d7a3d20780cea8dc522a42c8a68ed69d6fe09dd47f96ff04f2e018",
+    "tests/support/io_fixture.rs": "ac1fcf224fe345186ce803f19dc916a9e9482a9b1f91cc0399c2f49102aafbe5",
+    "tests/test_network_profile.py": "ef8347ff82a1423db1a7667918a5af50d35983e7a6ec2ae6028227c5ebfc1032",
+    "upstream.lock.json": "abfddf92ea8304cc528630e842861bcff0610add54c9dbc4514a45f7fc5a7b98",
+    "xtask/src/artifact.rs": "529c9895603f2eba588f2ed8082a6b8f7b8ab2ba228808969ed92421a1d4d0c7",
+    "xtask/src/main.rs": "df51ce0cd7ae5ecade5b2693c889662698a701e578d9d051eadb7e40711e3b7d",
+    "xtask/src/platform.rs": "191064766235e12da6d718fcf5ecdd24f6a1b784c366c6c6d11c7494488c5fac",
+    "tests/browser_fixture/go.mod": "297d5579a270d58927e2c3e03adaae612569f51590a95350b80a783a6e79fc62",
+    "tests/browser_fixture/security.go": "f083e2038aa805122a4ef8c4ff84304737df7cadd40aa2a2ab9b3b6ee1239f1b",
+    "tests/browser_fixture/go.sum": "71db21ca2f376756f8d84d55c2d9222d841118caef84a3d49e2ca9e992942c44",
+    "tests/browser_fixture/main.go": "e81cc5ce5bf3e6e3473bc8e255bc5d0c35afba6003bd4269e89724c8953d38ec"
+  },
+  "raw_receipt": "target/browser-runtime/results.json"
+}

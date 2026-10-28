@@ -6,6 +6,7 @@
 #include <vector>
 #include "base/containers/span.h"
 #include "base/functional/callback.h"
+#include "base/values.h"
 #include "net/base/ech_mode.h"
 #include "net/dns/host_resolver.h"
 #include "net/dns/system_dns_config_change_notifier.h"
@@ -15,9 +16,13 @@ struct EchPolicy {
   std::string query_name;
   uint16_t port = 443;
   bool quic = false;
+  bool all_protocols = false;
   net::EchMode mode = net::EchMode::kStrict;
   std::vector<uint8_t> config_list;
 };
+using EchPolicies = std::vector<std::shared_ptr<const EchPolicy>>;
+bool ReadBrowserEchPolicies(const base::DictValue& config,
+                            EchPolicies* policies);
 class DnsReadiness final : public net::SystemDnsConfigChangeNotifier::Observer {
  public:
   DnsReadiness(net::SystemDnsConfigChangeNotifier* notifier,

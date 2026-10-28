@@ -1,5 +1,8 @@
 #include "base/task/bind_post_task.h"
+#include "naive_rs/browser.h"
+#include "naive_rs/buffers.h"
 #include "naive_rs/ech.h"
+#include "naive_rs/cert_verifier.h"
 #include "naive_rs/network.h"
 #include "net/base/features.h"
 #include "net/dns/host_cache.h"
@@ -34,6 +37,7 @@
 #include "base/timer/timer.h"
 #include "components/version_info/version_info.h"
 #include "net/base/io_buffer.h"
+#include "net/base/isolation_info.h"
 #include "net/base/load_flags.h"
 #include "net/base/net_errors.h"
 #include "net/base/network_anonymization_key.h"
@@ -64,6 +68,7 @@
 #include "net/traffic_annotation/network_traffic_annotation.h"
 #include "net/url_request/url_request_context.h"
 #include "third_party/boringssl/src/include/openssl/pool.h"
+#include "url/origin.h"
 #include "url/url_util.h"
 
 namespace {
@@ -73,60 +78,48 @@ std::atomic<uint64_t> buffer_allocations{0}, live_buffers{0}, live_capacity{0},
 
 // The payload has no thread affinity. READ leases survive engine shutdown;
 // WRITTEN returns sole ownership to Rust for reuse in a later submission.
-struct naive_buffer : base::RefCountedThreadSafe<naive_buffer> {
-  explicit naive_buffer(size_t size)
-      : io(base::MakeRefCounted<net::IOBufferWithSize>(static_cast<int>(size))),
-        capacity(size) {
-    buffer_allocations.fetch_add(1, std::memory_order_relaxed);
-    live_buffers.fetch_add(1, std::memory_order_relaxed);
-    auto current =
-        live_capacity.fetch_add(size, std::memory_order_relaxed) + size;
-    auto peak = peak_capacity.load(std::memory_order_relaxed);
-    while (peak < current && !peak_capacity.compare_exchange_weak(
-                                 peak, current, std::memory_order_relaxed)) {
-    }
+naive_buffer::naive_buffer(size_t size)
+    : io(base::MakeRefCounted<net::IOBufferWithSize>(static_cast<int>(size))),
+      capacity(size) {
+  buffer_allocations.fetch_add(1, std::memory_order_relaxed);
+  live_buffers.fetch_add(1, std::memory_order_relaxed);
+  auto current =
+      live_capacity.fetch_add(size, std::memory_order_relaxed) + size;
+  auto peak = peak_capacity.load(std::memory_order_relaxed);
+  while (peak < current && !peak_capacity.compare_exchange_weak(
+                               peak, current, std::memory_order_relaxed)) {
   }
-  scoped_refptr<net::IOBufferWithSize> io;
-  const size_t capacity;
+}
+naive_buffer::~naive_buffer() {
+  live_buffers.fetch_sub(1, std::memory_order_relaxed);
+  live_capacity.fetch_sub(capacity, std::memory_order_relaxed);
+}
 
- private:
-  friend class base::RefCountedThreadSafe<naive_buffer>;
-  ~naive_buffer() {
-    live_buffers.fetch_sub(1, std::memory_order_relaxed);
-    live_capacity.fetch_sub(capacity, std::memory_order_relaxed);
-  }
-};
+namespace naive {
+OwnedIOBuffer::OwnedIOBuffer(uint8_t* data,
+                             size_t capacity,
+                             void* context,
+                             naive_owned_callback completed)
+    // The C ABI caller owns this validated allocation until our final release.
+    : net::IOBuffer(UNSAFE_BUFFERS(base::span(data, capacity))),
+      context_(context),
+      completed_(completed) {}
+OwnedIOBuffer::~OwnedIOBuffer() {
+  ClearSpan();
+  completed_(context_, result_, transferred_);
+}
+void OwnedIOBuffer::Complete(int result, size_t transferred) {
+  if (finished_)
+    return;
+  finished_ = true;
+  result_ = result;
+  transferred_ = transferred;
+}
+}  // namespace naive
 
 namespace {
-constexpr size_t kMaxIO = 64 * 1024;
-
-// Ownership belongs to the IOBuffer itself, not just the Stream or its task.
-// Lower layers may keep this object after Stream::Close has returned.
-class OwnedIOBuffer final : public net::IOBuffer {
- public:
-  OwnedIOBuffer(uint8_t* data, size_t capacity, void* context,
-                naive_owned_callback completed)
-      : net::IOBuffer(base::span(data, capacity)), context_(context),
-        completed_(completed) {}
-  void Complete(int result, size_t transferred) {
-    if (finished_)
-      return;
-    finished_ = true;
-    result_ = result;
-    transferred_ = transferred;
-  }
-
- private:
-  ~OwnedIOBuffer() override {
-    ClearSpan();
-    completed_(context_, result_, transferred_);
-  }
-  void* context_;
-  naive_owned_callback completed_;
-  int result_ = net::ERR_ABORTED;
-  size_t transferred_ = 0;
-  bool finished_ = false;
-};
+using naive::OwnedIOBuffer;
+constexpr size_t kMaxIO = naive::kMaxIO;
 constexpr auto kAnnotation = net::DefineNetworkTrafficAnnotation("naive", "");
 
 // Chromium process globals and the IO runner intentionally live until process
@@ -174,13 +167,8 @@ class Runtime {
     logging::LoggingSettings settings;
     settings.logging_dest = logging::LOG_NONE;
     logging::InitLogging(settings);
-    net::ClientSocketPoolManager::set_socket_soft_cap_per_pool_for_test(
-        net::HttpNetworkSession::SocketPoolType::kNormal, 2048);
-    net::ClientSocketPoolManager::set_max_sockets_per_proxy_chain(
-        net::HttpNetworkSession::SocketPoolType::kNormal, 2048);
-    net::ClientSocketPoolManager::set_max_sockets_per_group_for_test(
-        net::HttpNetworkSession::SocketPoolType::kNormal, 2040);
-    net::ClientSocketPool::set_used_idle_socket_timeout(base::Seconds(60));
+    // Naive opts out of pool limits per CONNECT request. Browser contexts keep
+    // Chromium's process-wide defaults instead of inheriting proxy-only tuning.
   }
   base::AtExitManager at_exit_;
   std::mutex lock_;
@@ -377,6 +365,23 @@ class Stream {
   void ShutdownWriteCompleted(int result);
   void WriteNext();
   void WriteCompleted(int result);
+  int ReadSocket(net::IOBuffer* buffer,
+                 int length,
+                 net::CompletionOnceCallback callback) {
+    return padding_socket_
+               ? padding_socket_->Read(buffer, length, std::move(callback))
+               : socket_->Read(buffer, length, std::move(callback));
+  }
+  int WriteSocket(net::IOBuffer* buffer,
+                  int length,
+                  net::CompletionOnceCallback callback,
+                  const net::NetworkTrafficAnnotationTag& annotation) {
+    return padding_socket_
+               ? padding_socket_->Write(buffer, length, std::move(callback),
+                                        annotation)
+               : socket_->Write(buffer, length, std::move(callback),
+                                annotation);
+  }
   void Emit(int event,
             int result,
             scoped_refptr<naive_buffer> buffer = {},
@@ -389,7 +394,8 @@ class Stream {
   naive_callback callback_;
   void* context_;
   net::ClientSocketHandle handle_;
-  std::unique_ptr<net::NaivePaddingSocket> socket_;
+  std::unique_ptr<net::NaivePaddingSocket> padding_socket_;
+  net::StreamSocket* socket_ = nullptr;  // owned by handle_
   scoped_refptr<naive_buffer> read_buffer_;
   bool read_pending_ = false;
   scoped_refptr<naive_buffer> write_payload_;
@@ -422,6 +428,8 @@ class Engine {
   int Init(const std::string& json,
            std::shared_ptr<naive::NetworkHooks> hooks) {
     auto dict = base::JSONReader::ReadDict(json, base::JSON_PARSE_RFC);
+    if (dict && dict->FindBool("browser-client").value_or(false))
+      return InitBrowser(*dict, std::move(hooks));
     if (!dict || !config_.Parse(*dict) || config_.proxy_chains.size() != 1 ||
         config_.insecure_concurrency > 64)
       return net::ERR_INVALID_ARGUMENT;
@@ -459,6 +467,11 @@ class Engine {
       if (!verifier)
         return net::ERR_INVALID_ARGUMENT;
     }
+    if (hooks_ && hooks_->value.verify_certificate) {
+      if (!verifier)
+        verifier = net::CertVerifier::CreateDefault(fetcher_);
+      verifier = naive::WrapCertificateVerifier(std::move(verifier), hooks_);
+    }
     context_ =
         net::BuildURLRequestContext(config_, fetcher_, net::NetLog::Get(), 0,
                                     std::move(verifier), configure, options);
@@ -473,6 +486,82 @@ class Engine {
     cleanup_.Start(FROM_HERE, base::Minutes(1), this, &Engine::CleanUp);
     return net::OK;
   }
+  int InitBrowser(const base::DictValue& dict,
+                  std::shared_ptr<naive::NetworkHooks> hooks) {
+    browser_mode_ = true;
+    int timeout_ms = dict.FindInt("connect-timeout-ms").value_or(30000);
+    int max_message =
+        dict.FindInt("max-websocket-message").value_or(16 * 1024 * 1024);
+    if (timeout_ms <= 0 || max_message <= 0 || max_message > 64 * 1024 * 1024)
+      return net::ERR_INVALID_ARGUMENT;
+    connect_timeout_ = base::Milliseconds(timeout_ms);
+    hooks_ = std::move(hooks);
+    naive::EchPolicies ech;
+    if (!naive::ReadBrowserEchPolicies(dict, &ech))
+      return net::ERR_INVALID_ARGUMENT;
+    const auto* rules = dict.FindString("host-resolver-rules");
+    net::ConfigureContext configure = base::BindRepeating(
+        &naive::ConfigureEchNetwork, hooks_, rules ? *rules : std::string(), ech);
+    cert_context_ =
+        net::BuildCertURLRequestContext(net::NetLog::Get(), configure);
+    fetcher_ = base::MakeRefCounted<net::CertNetFetcherURLRequest>();
+    fetcher_->SetURLRequestContext(cert_context_.get());
+    std::unique_ptr<net::CertVerifier> verifier;
+    if (const auto* roots = dict.FindString("extra-root-certs")) {
+      verifier = AdditionalRoots(*roots, fetcher_);
+      if (!verifier)
+        return net::ERR_INVALID_ARGUMENT;
+    } else {
+      verifier = net::CertVerifier::CreateDefault(fetcher_);
+    }
+    verifier = naive::WrapCertificateVerifier(std::move(verifier), hooks_);
+    context_ = naive::BuildBrowserContext(dict, std::move(verifier), hooks_, ech);
+    if (!context_)
+      return net::ERR_INVALID_ARGUMENT;
+    proxy_info_.UseDirect();
+    browser_ = std::make_unique<naive::BrowserOperations>(
+        context_.get(), callback_, runner_, connect_timeout_,
+        static_cast<size_t>(max_message),
+        base::BindRepeating(&Engine::CancelUnusedNetwork, idle_weak_.GetWeakPtr()));
+    return net::OK;
+  }
+  bool browser_mode() const { return browser_mode_; }
+  void Http(uint64_t id,
+            std::string json,
+            std::vector<char> data,
+            void* context) {
+    if (closed_ || !browser_ || streams_.contains(id)) {
+      callback_(context, id, NAIVE_CONNECTED, net::ERR_CONTEXT_SHUT_DOWN,
+                nullptr, nullptr, 0, 0);
+      callback_(context, id, NAIVE_DESTROYED, 0, nullptr, nullptr, 0, 0);
+      return;
+    }
+    browser_->Http(id, std::move(json), std::move(data), context);
+  }
+  void WebSocket(uint64_t id,
+                 std::string json,
+                 naive_websocket_callback callback,
+                 void* context) {
+    if (closed_ || !browser_ || streams_.contains(id)) {
+      callback(context, id, NAIVE_WS_ERROR, net::ERR_CONTEXT_SHUT_DOWN, nullptr,
+               0);
+      callback(context, id, NAIVE_WS_DESTROYED, 0, nullptr, 0);
+      return;
+    }
+    browser_->WebSocket(id, std::move(json), callback, context);
+  }
+  void WebSocketReceive(uint64_t id) {
+    if (!closed_ && browser_)
+      browser_->WebSocketReceive(id);
+  }
+  void WebSocketSend(uint64_t id, bool text, std::vector<char> data) {
+    if (!closed_ && browser_)
+      browser_->WebSocketSend(id, text, std::move(data));
+  }
+  void WebSocketClose(uint64_t id, uint16_t code, std::string reason) {
+    if (!closed_ && browser_)
+      browser_->WebSocketClose(id, code, std::move(reason));
+  }
   void Connect(uint64_t id,
                std::string hostname,
                uint16_t port,
@@ -485,6 +574,17 @@ class Engine {
       return;
     }
     ++stats_.connect_attempts;
+    if (browser_mode_) {
+      auto tunnel = std::make_shared<Tunnel>();
+      tunnel->ready = true;
+      auto stream = std::make_unique<Stream>(this, id, std::move(hostname),
+                                             port, tunnel, callback_, context);
+      auto* pointer = stream.get();
+      pointer->StartTimeout(connect_timeout_);
+      streams_.emplace(id, std::move(stream));
+      pointer->Connect();
+      return;
+    }
     auto& slot = tunnels_[next_tunnel_++ % tunnels_.size()];
     const auto now = base::TimeTicks::Now();
     bool fresh = !slot || (secure_ && now > slot->deadline);
@@ -519,6 +619,16 @@ class Engine {
   naive_client_stats Stats() const {
     auto result = stats_;
     result.active_streams = streams_.size();
+    if (browser_) {
+      auto other = browser_->Stats();
+      result.connect_attempts += other.connect_attempts;
+      result.connect_successes += other.connect_successes;
+      result.connect_failures += other.connect_failures;
+      result.closed_streams += other.closed_streams;
+      result.active_streams += other.active_streams;
+      result.bytes_read += other.bytes_read;
+      result.bytes_written += other.bytes_written;
+    }
     return result;
   }
   int StreamInfo(uint64_t id, naive_stream_info* output) {
@@ -532,6 +642,8 @@ class Engine {
     auto it = streams_.find(id);
     if (it != streams_.end())
       it->second->SetDeadline(mask, deadline);
+    else if (browser_)
+      browser_->SetDeadline(id, mask, deadline);
   }
   void RecordConnect(bool success) {
     if (success)
@@ -572,6 +684,8 @@ class Engine {
     auto it = streams_.find(id);
     if (it != streams_.end())
       it->second->Read(capacity);
+    else if (browser_)
+      browser_->Read(id, capacity);
   }
   void Write(uint64_t id, scoped_refptr<naive_buffer> buffer, size_t length) {
     if (closed_)
@@ -582,6 +696,10 @@ class Engine {
   }
   void OwnedIO(uint64_t id, bool read, scoped_refptr<OwnedIOBuffer> buffer) {
     auto it = streams_.find(id);
+    if (!closed_ && it == streams_.end() && browser_ && read) {
+      browser_->ReadOwned(id, std::move(buffer));
+      return;
+    }
     if (closed_ || it == streams_.end()) {
       buffer->Complete(net::ERR_SOCKET_NOT_CONNECTED, 0);
       return;
@@ -600,8 +718,11 @@ class Engine {
     if (closed_)
       return;
     auto it = streams_.find(id);
-    if (it == streams_.end())
+    if (it == streams_.end()) {
+      if (browser_)
+        browser_->Close(id, reason);
       return;
+    }
     auto stream = std::move(it->second);
     streams_.erase(it);
     auto tunnel = stream->tunnel();
@@ -618,10 +739,17 @@ class Engine {
       }
     }
     stream->Close(reason);
-    if (streams_.empty() && hooks_)
-      hooks_->CancelPending();
+    CancelUnusedNetwork();
     // The close can originate inside a stream/socket callback.
     runner_->DeleteSoon(FROM_HERE, std::move(stream));
+  }
+  void CancelUnusedNetwork() {
+    // URLRequest may leave a speculative connection job alive after the last
+    // request cancels. Do not retain its host verifier/resolver indefinitely.
+    // Other live direct TLS/HTTP/WS operations still own their pending work.
+    if (!closed_ && streams_.empty() &&
+        (!browser_ || browser_->Stats().active_streams == 0) && hooks_)
+      hooks_->CancelPending();
   }
   int ResetConnections() {
     if (closed_)
@@ -630,6 +758,8 @@ class Engine {
     for (auto& [id, stream] : streams_)
       stream->Close(net::ERR_NETWORK_CHANGED);
     streams_.clear();
+    if (browser_)
+      browser_->CancelAll(net::ERR_NETWORK_CHANGED);
     tunnels_.clear();
     tunnels_.resize(config_.insecure_concurrency);
     next_tunnel_ = 0;
@@ -651,10 +781,13 @@ class Engine {
     }
     closed_ = true;
     weak_.InvalidateWeakPtrs();
+    idle_weak_.InvalidateWeakPtrs();
     cleanup_.Stop();
     for (auto& [id, stream] : streams_)
       stream->Close(net::ERR_ABORTED);
     streams_.clear();
+    if (browser_)
+      browser_->CancelAll(net::ERR_ABORTED);
     tunnels_.clear();
     if (hooks_)
       hooks_->CancelPending();
@@ -700,6 +833,7 @@ class Engine {
   base::TimeDelta connect_timeout_;
   bool closed_ = false;
   bool secure_ = false;
+  bool browser_mode_ = false;
   size_t next_tunnel_ = 0;
   naive_callback callback_;
   std::shared_ptr<naive::NetworkHooks> hooks_;
@@ -710,11 +844,13 @@ class Engine {
   std::unique_ptr<net::URLRequestContext> cert_context_;
   scoped_refptr<net::CertNetFetcherURLRequest> fetcher_;
   std::unique_ptr<net::URLRequestContext> context_;
+  std::unique_ptr<naive::BrowserOperations> browser_;
   std::unique_ptr<net::FileNetLogObserver> netlog_;
   std::vector<std::shared_ptr<Tunnel>> tunnels_;
   std::map<uint64_t, std::unique_ptr<Stream>> streams_;
   base::RepeatingTimer cleanup_;
   base::WeakPtrFactory<Engine> weak_{this};
+  base::WeakPtrFactory<Engine> idle_weak_{this};
 };
 
 Stream::Stream(Engine* engine,
@@ -794,7 +930,9 @@ void Stream::CaptureInfo() {
     std::copy_n(text.begin(), count, std::begin(target));
     target[count] = 0;
   };
-  auto protocol = handle_.socket()->GetProxyNegotiatedProtocol();
+  auto protocol = engine_->browser_mode()
+                      ? handle_.socket()->GetNegotiatedProtocol()
+                      : handle_.socket()->GetProxyNegotiatedProtocol();
   copy(output->protocol, protocol == net::NextProto::kProtoQUIC
                              ? "h3"
                              : net::NextProtoToString(protocol));
@@ -804,7 +942,8 @@ void Stream::CaptureInfo() {
   if (handle_.socket()->GetPeerAddress(&address) == net::OK)
     copy(output->peer_address, address.ToString());
   net::SSLInfo ssl;
-  if (handle_.socket()->GetProxySSLInfo(&ssl)) {
+  if (engine_->browser_mode() ? handle_.socket()->GetSSLInfo(&ssl)
+                              : handle_.socket()->GetProxySSLInfo(&ssl)) {
     auto version = net::SSLConnectionStatusToVersion(ssl.connection_status);
     if (version >= net::SSL_CONNECTION_VERSION_TLS1 &&
         version <= net::SSL_CONNECTION_VERSION_TLS1_3)
@@ -824,19 +963,24 @@ void Stream::CaptureInfo() {
 void Stream::Connect() {
   url::CanonHostInfo info;
   auto host = net::HostPortPair(hostname_, port_).HostForURL();
-  url::SchemeHostPort endpoint("http", net::CanonicalizeHost(host, &info),
-                               port_,
+  url::SchemeHostPort endpoint(engine_->browser_mode() ? "https" : "http",
+                               net::CanonicalizeHost(host, &info), port_,
                                url::SchemeHostPort::ALREADY_CANONICALIZED);
   if (!endpoint.IsValid()) {
     Connected(net::ERR_INVALID_ARGUMENT);
     return;
   }
+  if (engine_->browser_mode())
+    tunnel_->key = net::IsolationInfo::CreateForInternalRequest(
+                       url::Origin::Create(endpoint.GetURL()))
+                       .network_anonymization_key();
   int rv = net::InitSocketHandleForHttpRequest(
-      std::move(endpoint), net::LOAD_IGNORE_LIMITS, net::MAXIMUM_PRIORITY,
-      engine_->session(), engine_->proxy_info(), {}, net::PRIVACY_MODE_DISABLED,
-      tunnel_->key, net::SecureDnsPolicy::kDisable, net::SocketTag(),
-      net::handles::kInvalidNetworkHandle, engine_->log(), &handle_,
-      base::BindOnce(&Stream::Connected, weak_.GetWeakPtr()),
+      std::move(endpoint),
+      engine_->browser_mode() ? net::LOAD_NORMAL : net::LOAD_IGNORE_LIMITS,
+      net::MAXIMUM_PRIORITY, engine_->session(), engine_->proxy_info(), {},
+      net::PRIVACY_MODE_DISABLED, tunnel_->key, net::SecureDnsPolicy::kDisable,
+      net::SocketTag(), net::handles::kInvalidNetworkHandle, engine_->log(),
+      &handle_, base::BindOnce(&Stream::Connected, weak_.GetWeakPtr()),
       net::ClientSocketPool::ProxyAuthCallback());
   if (rv != net::ERR_IO_PENDING)
     Connected(rv);
@@ -844,12 +988,18 @@ void Stream::Connect() {
 void Stream::Connected(int result) {
   connect_timer_.Stop();
   if (result >= 0) {
-    auto padding = engine_->padding();
-    if (!padding)
-      result = net::ERR_INVALID_RESPONSE;
-    else
-      socket_ = std::make_unique<net::NaivePaddingSocket>(
-          handle_.socket(), *padding, net::kServer);
+    if (engine_->browser_mode()) {
+      socket_ = handle_.socket();
+    } else {
+      auto padding = engine_->padding();
+      if (!padding)
+        result = net::ERR_INVALID_RESPONSE;
+      else {
+        padding_socket_ = std::make_unique<net::NaivePaddingSocket>(
+            handle_.socket(), *padding, net::kServer);
+        socket_ = handle_.socket();
+      }
+    }
   }
   last_activity_ = base::TimeTicks::Now();
   connect_reported_ = true;
@@ -872,8 +1022,8 @@ void Stream::Read(size_t capacity) {
     read_buffer_ = base::MakeRefCounted<naive_buffer>(capacity);
   read_pending_ = true;
   int rv =
-      socket_->Read(read_buffer_->io.get(), static_cast<int>(capacity),
-                    base::BindOnce(&Stream::ReadCompleted, weak_.GetWeakPtr()));
+      ReadSocket(read_buffer_->io.get(), static_cast<int>(capacity),
+                 base::BindOnce(&Stream::ReadCompleted, weak_.GetWeakPtr()));
   if (rv != net::ERR_IO_PENDING)
     ReadCompleted(rv);
 }
@@ -884,9 +1034,9 @@ void Stream::ReadOwned(scoped_refptr<OwnedIOBuffer> buffer) {
   }
   read_pending_ = true;
   owned_read_ = std::move(buffer);
-  int rv = socket_->Read(owned_read_.get(), owned_read_->size(),
-                         base::BindOnce(&Stream::ReadOwnedCompleted,
-                                        weak_.GetWeakPtr()));
+  int rv = ReadSocket(
+      owned_read_.get(), owned_read_->size(),
+      base::BindOnce(&Stream::ReadOwnedCompleted, weak_.GetWeakPtr()));
   if (rv != net::ERR_IO_PENDING)
     ReadOwnedCompleted(rv);
 }
@@ -970,10 +1120,10 @@ void Stream::ShutdownWriteCompleted(int result) {
 }
 void Stream::WriteNext() {
   while (write_buffer_ && write_buffer_->BytesRemaining() > 0) {
-    int rv = socket_->Write(
-        write_buffer_.get(), write_buffer_->BytesRemaining(),
-        base::BindOnce(&Stream::WriteCompleted, weak_.GetWeakPtr()),
-        kAnnotation);
+    int rv =
+        WriteSocket(write_buffer_.get(), write_buffer_->BytesRemaining(),
+                    base::BindOnce(&Stream::WriteCompleted, weak_.GetWeakPtr()),
+                    kAnnotation);
     if (rv == net::ERR_IO_PENDING)
       return;
     if (rv <= 0) {
@@ -1024,7 +1174,8 @@ void Stream::Close(int reason) {
   read_deadline_.Stop();
   write_deadline_.Stop();
   weak_.InvalidateWeakPtrs();
-  socket_.reset();
+  socket_ = nullptr;
+  padding_socket_.reset();
   handle_.ResetAndCloseSocket();
   read_buffer_.reset();
   read_pending_ = false;
@@ -1050,7 +1201,7 @@ struct naive_engine {
 
 extern "C" {
 uint32_t naive_abi_version() {
-  return 4;
+  return 6;
 }
 const char* naive_version() {
   return version_info::GetVersionNumber().data();
@@ -1297,5 +1448,94 @@ void naive_engine_write_owned(naive_engine* engine, uint64_t id,
                                                   length, context, completed);
   engine->runner->PostTask(FROM_HERE,
       base::BindOnce(&Engine::OwnedIO, engine->state, id, false, std::move(buffer)));
+}
+
+const char* naive_browser_user_agent() {
+  static_cast<void>(Runtime::Get());
+  return naive::BrowserUserAgent().c_str();
+}
+void naive_browser_http(naive_engine* engine,
+                        uint64_t id,
+                        const char* json,
+                        const uint8_t* body,
+                        size_t length,
+                        void* context) {
+  if (!engine)
+    return;
+  std::string request = json ? json : "";
+  std::vector<char> data;
+  if (length > 64 * 1024 * 1024 || (length && !body))
+    request.clear();
+  else if (length) {
+    // The ABI caller lends a readable range for this synchronous copy.
+    auto input =
+        UNSAFE_BUFFERS(base::span(reinterpret_cast<const char*>(body), length));
+    data.assign(input.begin(), input.end());
+  }
+  engine->runner->PostTask(
+      FROM_HERE, base::BindOnce(&Engine::Http, engine->state, id,
+                                std::move(request), std::move(data), context));
+}
+void naive_browser_websocket(naive_engine* engine,
+                             uint64_t id,
+                             const char* json,
+                             naive_websocket_callback callback,
+                             void* context) {
+  if (!engine || !callback)
+    return;
+  engine->runner->PostTask(
+      FROM_HERE,
+      base::BindOnce(&Engine::WebSocket, engine->state, id,
+                     std::string(json ? json : ""), callback, context));
+}
+void naive_browser_ws_receive(naive_engine* engine, uint64_t id) {
+  if (engine)
+    engine->runner->PostTask(
+        FROM_HERE,
+        base::BindOnce(&Engine::WebSocketReceive, engine->state, id));
+}
+void naive_browser_ws_send(naive_engine* engine,
+                           uint64_t id,
+                           int32_t text,
+                           const uint8_t* bytes,
+                           size_t length) {
+  if (!engine)
+    return;
+  if (length > 64 * 1024 * 1024 || (length && !bytes)) {
+    engine->runner->PostTask(FROM_HERE,
+                             base::BindOnce(&Engine::Close, engine->state, id,
+                                            net::ERR_INVALID_ARGUMENT));
+    return;
+  }
+  std::vector<char> data;
+  if (length) {
+    // The ABI caller lends a readable range for this synchronous copy.
+    auto input = UNSAFE_BUFFERS(
+        base::span(reinterpret_cast<const char*>(bytes), length));
+    data.assign(input.begin(), input.end());
+  }
+  engine->runner->PostTask(
+      FROM_HERE, base::BindOnce(&Engine::WebSocketSend, engine->state, id,
+                                text != 0, std::move(data)));
+}
+void naive_browser_ws_close(naive_engine* engine,
+                            uint64_t id,
+                            uint16_t code,
+                            const uint8_t* reason,
+                            size_t length) {
+  if (!engine)
+    return;
+  if (length > 123 || (length && !reason)) {
+    engine->runner->PostTask(FROM_HERE,
+                             base::BindOnce(&Engine::Close, engine->state, id,
+                                            net::ERR_INVALID_ARGUMENT));
+    return;
+  }
+  std::string text;
+  if (length)
+    text.assign(reinterpret_cast<const char*>(reason), length);
+  engine->runner->PostTask(
+      FROM_HERE, base::BindOnce(&Engine::WebSocketClose, engine->state, id,
+                                code, std::move(text)));
 }
 }

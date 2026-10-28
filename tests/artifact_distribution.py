@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise real native package installation and adversarial archive rejection."""
 import functools
+import argparse
 import hashlib
 import http.server
 import io
@@ -42,7 +43,10 @@ def rewrite(source, output, *, mutate=None, extra=None):
 
 
 def main():
-    target = next(line[6:] for line in run("rustc", "-vV").stdout.splitlines() if line.startswith("host: "))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--target", help="native/Rust target to link; defaults to the rustc host")
+    args = parser.parse_args()
+    target = args.target or next(line[6:] for line in run("rustc", "-vV").stdout.splitlines() if line.startswith("host: "))
     with tempfile.TemporaryDirectory(prefix="artifacts-", dir=ROOT / "target") as work:
         work = Path(work)
         archive = work / "native.tar.gz"
@@ -143,10 +147,27 @@ futures-executor = "0.3"
         let client = naive::NaiveClient::new(naive::Config::new("http://127.0.0.1:9")).await.unwrap();
         assert!(!naive::native_version().is_empty());
         client.shutdown().await.unwrap();
+        let mut config = naive::browser::BrowserConfig::default();
+        config.ech.insert("localhost".into(), naive::EchOptions {
+            mode: naive::EchMode::Disabled, ..Default::default()
+        });
+        config.certificate_verifier = Some(std::sync::Arc::new(
+            |_: naive::CertificateInfo, done: naive::CertificateVerification| {
+                let cancellation = done.cancellation();
+                let _ = cancellation.is_cancelled();
+                done.complete(naive::CertificateDecision::UseDefault);
+            }
+        ));
+        let browser = naive::browser::BrowserClient::new(config).await.unwrap();
+        let _ = browser.connect_tls("localhost", 9).await;
+        let _ = browser.get("http://localhost:9/").await;
+        let _ = browser.connect_websocket(naive::browser::WebSocketRequest::new(
+            "ws://localhost:9/", "http://localhost")).await;
+        browser.shutdown().await.unwrap();
     });
 }
 ''')
-                run("cargo", "build", "--offline", "--manifest-path", str(consumer / "Cargo.toml"), env={**os.environ, "NAIVE_NATIVE_DIR": str(destination), "CARGO_TARGET_DIR": str(work / "consumer-build")})
+                run("cargo", "build", "--offline", "--target", target, "--manifest-path", str(consumer / "Cargo.toml"), env={**os.environ, "NAIVE_NATIVE_DIR": str(destination), "CARGO_TARGET_DIR": str(work / "consumer-build")})
                 print(f"{target}: deterministic package, install/replace, {len(cases)+3} rejection cases, and real Rust consumer link passed")
             finally:
                 server.shutdown()

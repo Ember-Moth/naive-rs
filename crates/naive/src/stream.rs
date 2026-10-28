@@ -18,6 +18,7 @@ const MIN_BUFFER: usize = 4096;
 pub(crate) struct State {
     pub connected: bool,
     pub handshake_waker: Option<Waker>,
+    pub response_metadata: Option<String>,
     pub read_deadline: Option<Instant>,
     pub write_deadline: Option<Instant>,
     pub terminal: Option<Error>,

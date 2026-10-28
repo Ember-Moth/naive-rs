@@ -17,7 +17,9 @@ enum naive_event {
   NAIVE_DESTROYED = 5,
   NAIVE_READ_DEADLINE = 6,
   NAIVE_WRITE_DEADLINE = 7,
-  NAIVE_WRITE_SHUTDOWN = 8
+  NAIVE_WRITE_SHUTDOWN = 8,
+  // UTF-8 JSON response metadata in the transferred buffer. Body follows READ.
+  NAIVE_HTTP_HEADERS = 9
 };
 
 // Owned IO holds external storage until the LAST native IOBuffer reference
@@ -44,6 +46,17 @@ typedef void (*naive_callback)(void* context,
                                uint8_t* data,
                                size_t length,
                                size_t capacity);
+
+enum naive_websocket_event {
+  NAIVE_WS_OPEN = 1, NAIVE_WS_MESSAGE = 2, NAIVE_WS_SENT = 3,
+  NAIVE_WS_CLOSED = 4, NAIVE_WS_ERROR = 5, NAIVE_WS_DESTROYED = 6
+};
+// WebSocket payload is borrowed ONLY for the duration of this callback. OPEN
+// and CLOSED carry UTF-8 JSON. MESSAGE code is 1 (text) or 2 (binary). ERROR code
+// is a Chromium net error. DESTROYED is final and releases the context once.
+typedef void (*naive_websocket_callback)(void* context, uint64_t id, int32_t event,
+                                         int32_t code, const uint8_t* data,
+                                         size_t length);
 
 uint32_t naive_abi_version(void);
 const char* naive_version(void);
@@ -143,6 +156,23 @@ void naive_engine_write_owned(naive_engine* engine, uint64_t id,
 // Emits WRITE_SHUTDOWN. Unsupported transports fail without disconnecting.
 void naive_engine_shutdown_write(naive_engine* engine, uint64_t id);
 void naive_engine_close(naive_engine* engine, uint64_t id);
+
+// Browser handles use the same lifetime/IO APIs, with native TLS for connect().
+// create JSON must contain browser-client=true. These additions never change
+// the legacy Naive proxy configuration or its CONNECT behavior.
+const char* naive_browser_user_agent(void);
+// Both start functions take context ownership on every valid handle submission,
+// including rejected arguments; completion ends with DESTROYED exactly once.
+void naive_browser_http(naive_engine* engine, uint64_t id, const char* request_json,
+                        const uint8_t* body, size_t length, void* context);
+void naive_browser_websocket(naive_engine* engine, uint64_t id,
+                             const char* request_json,
+                             naive_websocket_callback callback, void* context);
+void naive_browser_ws_receive(naive_engine* engine, uint64_t id);
+void naive_browser_ws_send(naive_engine* engine, uint64_t id, int32_t text,
+                           const uint8_t* data, size_t length);
+void naive_browser_ws_close(naive_engine* engine, uint64_t id, uint16_t code,
+                            const uint8_t* reason, size_t length);
 
 #ifdef __cplusplus
 }

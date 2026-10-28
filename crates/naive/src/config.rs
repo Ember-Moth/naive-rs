@@ -6,6 +6,7 @@ use std::{collections::BTreeMap, fmt, path::PathBuf, time::Duration};
 pub struct Config {
     pub proxy: String,
     pub network: crate::NetworkConfig,
+    pub certificate_verifier: Option<std::sync::Arc<dyn crate::CertificateVerifier>>,
     pub observer: Option<std::sync::Arc<dyn crate::Observer>>,
     pub http2: Http2Options,
     pub quic: QuicOptions,
@@ -37,6 +38,7 @@ impl Config {
         Self {
             proxy: proxy.into(),
             network: crate::NetworkConfig::default(),
+            certificate_verifier: None,
             observer: None,
             http2: Http2Options::default(),
             quic: QuicOptions::default(),
@@ -124,36 +126,7 @@ impl Config {
             }
         }
         if let Some(ech) = &self.ech {
-            if ech.mode == EchMode::Disabled
-                && (ech.config_list.is_some() || ech.query_name.is_some())
-            {
-                return Err(Error::invalid(
-                    "disabled ECH cannot include configuration or a query name",
-                ));
-            }
-            if ech.config_list.is_some() && ech.query_name.is_some() {
-                return Err(Error::invalid(
-                    "select either a static ECHConfigList or DNS query name",
-                ));
-            }
-            if ech
-                .config_list
-                .as_ref()
-                .is_some_and(|v| v.is_empty() || v.len() > 65537)
-            {
-                return Err(Error::invalid(
-                    "ECHConfigList must contain 1..=65537 encoded bytes",
-                ));
-            }
-            if ech
-                .query_name
-                .as_ref()
-                .is_some_and(|name| name.is_empty() || name.contains('\0'))
-            {
-                return Err(Error::invalid(
-                    "ECH query name must be nonempty and contain no NUL",
-                ));
-            }
+            ech.json()?;
         }
         let mut headers = String::new();
         for (name, value) in &self.extra_headers {
@@ -193,17 +166,8 @@ impl Config {
             json["quic-congestion"] = name.into();
         }
         if let Some(ech) = &self.ech {
-            json["ech-mode"] = match ech.mode {
-                EchMode::Disabled => 0,
-                EchMode::Opportunistic => 1,
-                EchMode::Strict => 2,
-            }
-            .into();
-            if let Some(list) = &ech.config_list {
-                json["ech-config-list"] = serde_json::json!(list);
-            }
-            if let Some(name) = &ech.query_name {
-                json["ech-query-name"] = name.clone().into();
+            for (name, value) in ech.json()?.as_object().unwrap() {
+                json[name] = value.clone();
             }
         }
         if !headers.is_empty() {
@@ -279,8 +243,9 @@ pub enum EchMode {
     #[default]
     Strict,
 }
-/// ECH policy for the first secure proxy in the configured chain. It must be
-/// the outermost hop and use a DNS hostname (address mapping remains available).
+/// ECH policy for a direct hostname or the first secure proxy in a chain.
+/// A proxy policy must target the outermost hop and use a DNS hostname.
+/// Address mapping remains available for both direct and proxy connections.
 #[derive(Clone, Debug, Default)]
 pub struct EchOptions {
     pub mode: EchMode,
@@ -289,4 +254,49 @@ pub struct EchOptions {
     /// HTTPS-record lookup name; None uses the proxy hostname. The proxy port
     /// is preserved. Mutually exclusive with a static config_list.
     pub query_name: Option<String>,
+}
+
+impl EchOptions {
+    pub(crate) fn json(&self) -> Result<serde_json::Value, Error> {
+        if self.mode == EchMode::Disabled
+            && (self.config_list.is_some() || self.query_name.is_some())
+        {
+            return Err(Error::invalid(
+                "disabled ECH cannot include configuration or a query name",
+            ));
+        }
+        if self.config_list.is_some() && self.query_name.is_some() {
+            return Err(Error::invalid(
+                "select either a static ECHConfigList or DNS query name",
+            ));
+        }
+        if self
+            .config_list
+            .as_ref()
+            .is_some_and(|v| v.is_empty() || v.len() > 65537)
+        {
+            return Err(Error::invalid(
+                "ECHConfigList must contain 1..=65537 encoded bytes",
+            ));
+        }
+        if self
+            .query_name
+            .as_ref()
+            .is_some_and(|v| v.is_empty() || v.contains('\0'))
+        {
+            return Err(Error::invalid(
+                "ECH query name must be nonempty and contain no NUL",
+            ));
+        }
+        let mut value = serde_json::json!({"ech-mode": match self.mode {
+            EchMode::Disabled => 0, EchMode::Opportunistic => 1, EchMode::Strict => 2,
+        }});
+        if let Some(list) = &self.config_list {
+            value["ech-config-list"] = serde_json::json!(list);
+        }
+        if let Some(name) = &self.query_name {
+            value["ech-query-name"] = name.clone().into();
+        }
+        Ok(value)
+    }
 }

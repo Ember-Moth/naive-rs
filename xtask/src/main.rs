@@ -420,7 +420,7 @@ fn run() -> Result<()> {
         Vec::new()
     };
     let manifest = serde_json::json!({
-        "abi": 4, "target": target, "fingerprint": build_fingerprint,
+        "abi": 6, "target": target, "fingerprint": build_fingerprint,
         "native_profile": native_profile, "gn_args": gn_args,
         "archive": platform.archive(), "platform": platform::details(&src, platform)?,
         "wrapper_version": env!("CARGO_PKG_VERSION"),

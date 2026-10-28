@@ -6,6 +6,7 @@ extern "C" {
 #endif
 
 typedef struct naive_network_request naive_network_request;
+typedef struct naive_cert_request naive_cert_request;
 
 // Hooks are scoped to a client, including its certificate-fetching context.
 // Native retains context once and releases it after the last hook user goes
@@ -42,7 +43,22 @@ typedef struct naive_network_hooks {
                    const char* peer,
                    int64_t network,
                    naive_network_request* request);
+  // Runs after native certificate verification. info is borrowed JSON with
+  // hostname, DER certificate chains, native verification result and metadata.
+  // Receives ONE request reference; finish exactly once, on any thread.
+  // Return promptly. A canceled request never changes the connection's trust.
+  void (*verify_certificate)(void* context,
+                             const char* info,
+                             naive_cert_request* request);
 } naive_network_hooks;
+
+void naive_cert_request_retain(naive_cert_request* request);
+void naive_cert_request_release(naive_cert_request* request);
+int32_t naive_cert_request_is_cancelled(naive_cert_request* request);
+// Consumes ONE reference. 0 = native result; 1 = explicitly accept certificate;
+// 2 (and unknown values) = reject. Accept does not mark a private root public,
+// override non-certificate transport errors, or disable TLS/ECH verification.
+void naive_cert_verify_complete(naive_cert_request* request, int32_t decision);
 
 // Optional extra references for cancellation observers.
 void naive_network_request_retain(naive_network_request* request);

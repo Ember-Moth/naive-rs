@@ -61,3 +61,12 @@ base and `upstream.lock.json` together when upgrading.
 15. **0015-connect-half-close.patch** adds opt-in H2/H3 write-direction FIN
     while retaining reads. Unsupported sockets explicitly return an error;
     upstream CLI callers that do not opt in retain their existing close policy.
+`0016-release-synchronous-http-read-buffer.patch` makes the synchronous HTTP
+cache read path release its IOBuffer reference, matching the async path. This
+lets owned response reads return after the final native reference disappears
+without disabling the HTTP cache or weakening buffer lifetime guarantees.
+
+`0017-scope-cross-host-connection-pooling.patch` adds an opt-in SSL policy hook
+for cross-host H2/H3 connection coalescing. Direct contexts with certificate
+callbacks or explicit ECH rules use it to require verification under each
+destination hostname's policy. Default contexts retain existing pooling.

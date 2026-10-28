@@ -66,6 +66,10 @@ can change traffic characteristics and should be selected for the actual link.
 
 ## ECH
 
+Direct TLS/HTTP/WSS clients have a per-host `BrowserConfig::ech` map. Both client
+types also accept asynchronous `certificate_verifier` callbacks. See
+[TLS policy](tls-policy.md) for decisions, cancellation and connection reuse.
+
 `Config::ech = Some(EchOptions::default())` requires ECH for the outermost
 HTTPS/QUIC proxy, using its DNS HTTPS record. Supply `config_list` for a static
 serialized ECHConfigList, or `query_name` to query another DNS name while keeping

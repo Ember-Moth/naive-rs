@@ -8,7 +8,9 @@
 #include "base/strings/string_util.h"
 #include "base/task/single_thread_task_runner.h"
 #include "net/base/address_list.h"
+#include "net/base/ip_address.h"
 #include "net/base/net_errors.h"
+#include "net/base/url_util.h"
 #include "net/dns/host_resolver_manager.h"
 #include "net/dns/public/host_resolver_results.h"
 #include "net/dns/public/resolve_error_info.h"
@@ -16,6 +18,70 @@
 #include "third_party/boringssl/src/include/openssl/ssl.h"
 
 namespace naive {
+bool ReadBrowserEchPolicies(const base::DictValue& config,
+                            EchPolicies* policies) {
+  if (!config.contains("ech-hosts"))
+    return true;
+  const auto* hosts = config.FindDict("ech-hosts");
+  if (!hosts || hosts->size() > 128)
+    return false;
+  std::set<std::string> names;
+  for (const auto [host, value] : *hosts) {
+    if (host.empty() || host.size() > 253 ||
+        host.find_first_of("/:#?\\@* \t\r\n") != std::string::npos)
+      return false;
+    url::CanonHostInfo info;
+    auto policy = std::make_shared<EchPolicy>();
+    policy->host = net::CanonicalizeHost(host, &info);
+    if (policy->host.ends_with('.'))
+      policy->host.pop_back();
+    net::IPAddress ip;
+    if (info.family == url::CanonHostInfo::BROKEN || policy->host.empty() ||
+        ip.AssignFromIPLiteral(policy->host) ||
+        !names.insert(policy->host).second)
+      return false;
+    const auto* options = value.GetIfDict();
+    auto mode = options ? options->FindInt("ech-mode") : std::nullopt;
+    if (!mode || *mode < 0 || *mode > 2)
+      return false;
+    policy->mode = static_cast<net::EchMode>(*mode);
+    policy->query_name = policy->host;
+    policy->port =
+        0;  // Resolve HTTPS records using the actual destination port.
+    policy->all_protocols = true;
+    if (*mode == 0 && (options->contains("ech-config-list") ||
+                       options->contains("ech-query-name")))
+      return false;
+    if (options->contains("ech-query-name")) {
+      const auto* query = options->FindString("ech-query-name");
+      if (!query || query->empty() || query->size() > 253 ||
+          query->find_first_of("/:#?\\@* \t\r\n") != std::string::npos ||
+          options->contains("ech-config-list"))
+        return false;
+      policy->query_name = net::CanonicalizeHost(*query, &info);
+      if (policy->query_name.ends_with('.'))
+        policy->query_name.pop_back();
+      if (info.family == url::CanonHostInfo::BROKEN ||
+          policy->query_name.empty() ||
+          ip.AssignFromIPLiteral(policy->query_name))
+        return false;
+    }
+    if (options->contains("ech-config-list")) {
+      const auto* list = options->FindList("ech-config-list");
+      if (!list || list->empty() || list->size() > 65537)
+        return false;
+      for (const auto& byte : *list) {
+        if (!byte.is_int() || byte.GetInt() < 0 || byte.GetInt() > 255)
+          return false;
+        policy->config_list.push_back(static_cast<uint8_t>(byte.GetInt()));
+      }
+      if (!ValidEchConfig(policy->config_list))
+        return false;
+    }
+    policies->push_back(std::move(policy));
+  }
+  return true;
+}
 DnsReadiness::DnsReadiness(net::SystemDnsConfigChangeNotifier* notifier,
                            bool supported,
                            std::shared_ptr<net::HostResolverManager> manager)
@@ -80,8 +146,9 @@ void Apply(net::ConnectionEndpointMetadata& metadata,
     return;
   metadata.target_name = policy.host;
   metadata.supported_protocol_alpns =
-      policy.quic ? std::vector<std::string>{"h3"}
-                  : std::vector<std::string>{"h2", "http/1.1"};
+      policy.all_protocols ? std::vector<std::string>{"h3", "h2", "http/1.1"}
+      : policy.quic        ? std::vector<std::string>{"h3"}
+                           : std::vector<std::string>{"h2", "http/1.1"};
 }
 
 class Lookup {
@@ -504,8 +571,8 @@ class Resolver : public net::HostResolver {
     if (!matches)
       return request;
     return std::make_unique<Request>(
-        std::move(request), query_, policy_, closed_, std::move(key), network,
-        std::move(log), std::move(params), readiness_);
+        std::move(request), query_, ForPort(host.port()), closed_,
+        std::move(key), network, std::move(log), std::move(params), readiness_);
   }
   std::unique_ptr<ResolveHostRequest> CreateRequest(
       const net::HostPortPair& host,
@@ -518,9 +585,9 @@ class Resolver : public net::HostResolver {
         host, key, network, log, matches ? AddressParameters(params) : params);
     if (!matches)
       return request;
-    return std::make_unique<Request>(std::move(request), query_, policy_,
-                                     closed_, key, network, log, params,
-                                     readiness_);
+    return std::make_unique<Request>(std::move(request), query_,
+                                     ForPort(host.port()), closed_, key,
+                                     network, log, params, readiness_);
   }
   std::unique_ptr<ServiceEndpointRequest> CreateServiceEndpointRequest(
       Host host,
@@ -529,14 +596,15 @@ class Resolver : public net::HostResolver {
       net::NetLogWithSource log,
       Parameters params) override {
     const bool matches = Matches(host.GetHostnameWithoutBrackets(), params);
+    const auto port = host.GetPort();
     auto request = address_->CreateServiceEndpointRequest(
         std::move(host), key, network, log,
         matches ? *AddressParameters(params) : params);
     if (!matches)
       return request;
     return std::make_unique<ServiceRequest>(
-        std::move(request), query_, policy_, closed_, std::move(key), network,
-        std::move(log), std::move(params), readiness_);
+        std::move(request), query_, ForPort(port), closed_, std::move(key),
+        network, std::move(log), std::move(params), readiness_);
   }
   std::unique_ptr<ProbeRequest> CreateDohProbeRequest() override {
     return address_->CreateDohProbeRequest();
@@ -558,11 +626,23 @@ class Resolver : public net::HostResolver {
   }
 
  private:
+  std::shared_ptr<const EchPolicy> ForPort(uint16_t port) const {
+    if (policy_->port)
+      return policy_;
+    auto policy = std::make_shared<EchPolicy>(*policy_);
+    policy->port = port;
+    return policy;
+  }
   bool Matches(std::string_view host,
                const std::optional<Parameters>& params) const {
+    if (host.ends_with('.'))
+      host.remove_suffix(1);
+    std::string_view expected = policy_->host;
+    if (expected.ends_with('.'))
+      expected.remove_suffix(1);
     auto type =
         params ? params->dns_query_type : net::DnsQueryType::UNSPECIFIED;
-    return base::EqualsCaseInsensitiveASCII(host, policy_->host) &&
+    return base::EqualsCaseInsensitiveASCII(host, expected) &&
            (type == net::DnsQueryType::UNSPECIFIED ||
             type == net::DnsQueryType::A || type == net::DnsQueryType::AAAA);
   }

@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "base/functional/callback.h"
+#include "naive_rs/ech.h"
 #include "naive_rs/include/naive_network.h"
 namespace net {
 class URLRequestContextBuilder;
@@ -29,5 +30,9 @@ void ConfigureNetwork(std::shared_ptr<NetworkHooks> hooks,
                       std::string rules,
                       std::shared_ptr<const EchPolicy> ech,
                       net::URLRequestContextBuilder& builder);
+void ConfigureEchNetwork(std::shared_ptr<NetworkHooks> hooks,
+                         std::string rules,
+                         EchPolicies policies,
+                         net::URLRequestContextBuilder& builder);
 }  // namespace naive
 #endif

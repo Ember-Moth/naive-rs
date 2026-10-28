@@ -1,6 +1,7 @@
 #include "naive_rs/network.h"
 #include "naive_rs/ech.h"
 
+#include <algorithm>
 #include <atomic>
 #include <set>
 #include <utility>
@@ -843,13 +844,29 @@ void ConfigureNetwork(std::shared_ptr<NetworkHooks> hooks,
                       std::string rules,
                       std::shared_ptr<const EchPolicy> ech,
                       net::URLRequestContextBuilder& builder) {
-  if ((hooks && hooks->value.resolve) ||
-      (ech && ech->mode != net::EchMode::kDisabled)) {
+  EchPolicies policies;
+  if (ech)
+    policies.push_back(std::move(ech));
+  ConfigureEchNetwork(std::move(hooks), std::move(rules), std::move(policies),
+                      builder);
+}
+
+void ConfigureEchNetwork(std::shared_ptr<NetworkHooks> hooks,
+                         std::string rules,
+                         EchPolicies policies,
+                         net::URLRequestContextBuilder& builder) {
+  std::erase_if(policies, [](const auto& policy) {
+    return policy->mode == net::EchMode::kDisabled;
+  });
+  const bool discover = std::any_of(
+      policies.begin(), policies.end(),
+      [](const auto& policy) { return policy->config_list.empty(); });
+  if ((hooks && hooks->value.resolve) || !policies.empty()) {
     std::unique_ptr<net::HostResolver> resolver;
     std::shared_ptr<DnsReadiness> readiness;
     if (hooks && hooks->value.resolve) {
       resolver = std::make_unique<Resolver>(hooks);
-    } else if (ech && ech->config_list.empty()) {
+    } else if (discover) {
       auto backend = BuiltinEchResolver();
       resolver = std::move(backend.resolver);
       readiness = std::move(backend.readiness);
@@ -864,9 +881,9 @@ void ConfigureNetwork(std::shared_ptr<NetworkHooks> hooks,
       mapped->SetRulesFromString(rules);
       resolver = std::move(mapped);
     }
-    if (ech && ech->mode != net::EchMode::kDisabled)
-      resolver = WrapEchResolver(std::move(resolver), query_base,
-                                 std::move(ech), std::move(readiness));
+    for (const auto& ech : policies)
+      resolver =
+          WrapEchResolver(std::move(resolver), query_base, ech, readiness);
     builder.set_host_mapping_rules("");
     builder.set_host_resolver(std::move(resolver));
   } else if (!rules.empty()) {

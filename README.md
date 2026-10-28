@@ -1,13 +1,20 @@
 # naive-rs
 
-Rust asynchronous TCP streams backed by the native NaïveProxy/Chromium network
-stack. This is a library, with no application entrypoint or local proxy listener.
+Rust networking backed by the native NaïveProxy/Chromium stack: Naive proxy TCP
+streams plus direct native TLS, HTTP/1.1, HTTP/2, HTTP/3 and WebSocket clients.
+This is a library, with no application entrypoint or local proxy listener.
 The `xtask` binary is a development/build tool only.
 
 NaïveProxy is pinned as a clean Git submodule. Ordered patches extract its network
 context and add reusable build targets. The C++ bridge uses the upstream proxy
 delegate, socket pools, padding socket and browser preamble implementation.
 Rust provides ownership, cancellation and optional Tokio/futures-io adapters.
+The separate `browser::BrowserClient` always connects directly; it never routes
+through a Naive proxy. Its origin TLS, HTTP and WebSocket implementations all
+run in Chromium, including certificate validation and protocol framing.
+See [native client APIs and network-profile validation](docs/browser-client.md).
+Certificate callbacks and per-host direct ECH are described in
+[TLS policy](docs/tls-policy.md).
 
 ## Build
 
@@ -37,7 +44,7 @@ and Cargo cross compilation. Artifacts are placed in
 `libnaive_native.a` and its `manifest.json`. The build script validates the ABI,
 target, archive digest and, in a source checkout, the native source/patch digest.
 
-The native ABI is version 4. Rebuild the native artifact after updating from an
+The native ABI is version 6. Rebuild the native artifact after updating from an
 earlier wrapper; the build script rejects mismatched artifacts.
 
 The default `portable` native profile keeps PGO and native ThinLTO disabled.
@@ -179,18 +186,22 @@ use an unpinned branch head for a reproducible native artifact.
 
 The native platform matrix compiles and links test targets with `--no-run`.
 Library CI also runs the focused owned IO, monoio/compio and H2/H3 half-close
-regressions on macOS, using loopback fixtures. It starts no full application,
+regressions and the direct native client suite on macOS, using loopback fixtures. It starts no full application,
 simulator or VM. Run the same suite locally after building the native library:
 
 ```sh
 python3 tests/build_caddy.py
 python3 tests/owned_io.py --repeat 5
+python3 tests/browser.py --build-fixture --repeat 3
 ```
 
 The suite checks in-flight cancellation, native owner/guard release, read/write
 deadlines, thread-local buffers, split IO, partial transfers and FIN/response
 ordering. Its receipt and logs are written to `target/owned-runtime/final/`;
 the recorded local result is [here](docs/owned-io-runtime-results.json).
+The direct client suite also captures actual ClientHello, HTTP/2 SETTINGS and
+ordered request headers under `target/browser-runtime/`. Capturing these fields
+does not establish a Chrome match without a corresponding real Chrome baseline.
 Other library runtime checks remain available below.
 
 `cargo test --workspace --all-features` runs local HTTP CONNECT fixtures covering fragmented

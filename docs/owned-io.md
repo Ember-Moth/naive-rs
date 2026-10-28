@@ -4,7 +4,8 @@ The core is independent of the host application and Rust runtime. It does not
 import Sonar buffer types, call a Rust runtime's `spawn`, or require a Tokio
 reactor. The native Chromium IO workers remain responsible for networking.
 Default Cargo features are empty; Tokio, futures-io and bytes integrations are
-explicit opt-ins. The native ABI for these interfaces is **4**.
+explicit opt-ins. These interfaces were introduced in ABI **4**; current ABI
+**6** retains them together with the direct native client APIs introduced in ABI 5.
 
 ## API and ownership
 

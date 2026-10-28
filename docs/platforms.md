@@ -5,6 +5,13 @@ The build tool separates the target ABI from the host toolchain. Run
 evidence that a binary has run on that platform; current results are recorded
 in `platform-build-results.json` and the functional-gap checklist.
 
+The historical multi-platform archive snapshot is tied to its recorded ABI 4
+revision. ABI 5 adds direct native TLS/HTTP/WebSocket clients; its initial runtime
+evidence is recorded separately in `browser-runtime-results.json`. Do not treat
+the older archive checksums as verification of the newer native sources.
+ABI 6 adds certificate callbacks and direct ECH configuration. These APIs require
+a matching native rebuild; earlier platform snapshots do not validate them.
+
 | Target family | Build host | Current recipe boundary |
 |---|---|---|
 | macOS arm64 / x86_64 | macOS with Xcode | Native static library, macOS 13+ |
@@ -43,11 +50,12 @@ The build lock still serializes native preparation and compilation within a
 checkout. The pinned Linux host tools are x86_64 binaries; an ARM64 Linux host
 needs a working x86_64 user-mode execution environment. CI uses an x86_64 host for Linux cross-compilation.
 
-On Windows, set `NAIVE_NATIVE_SOURCE_ROOT` to a short absolute directory such as
-`C:\ns` (as CI does). Prepared sources still use host and content-hash
-subdirectories, but avoid the deeply nested checkout prefix that can exceed
-LLVM's Windows path limits. Toolchain caches and packaged outputs remain under
-`target/native/` in the checkout.
+On Windows, set `NAIVE_NATIVE_SOURCE_ROOT` to a short absolute directory on a
+different drive from the Windows SDK, such as `D:\ns` when the SDK is on `C:`
+(as CI does). This keeps source paths short and makes Chromium emit absolute
+SDK include paths. Long relative SDK paths can otherwise exceed Windows path
+limits before `..` segments are normalized. Toolchain caches and packaged
+outputs remain under `target/native/` in the checkout.
 
 The Windows archive uses the static release C runtime (`/MT`). Final Rust links
 must use the same runtime; this repository configures it in `.cargo/config.toml`.

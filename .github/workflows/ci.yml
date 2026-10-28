@@ -8,6 +8,8 @@ jobs:
   macos:
     runs-on: macos-26
     timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,20 +31,32 @@ jobs:
       - run: cargo test --workspace --all-features --no-run --locked
       - run: cargo test -p naive-rs --no-default-features --no-run --locked
       - run: cargo test -p naive-rs --no-default-features --features futures-io --no-run --locked
+      - name: Check minimum supported Rust version
+        run: |
+          rustup toolchain install 1.85.0 --profile minimal
+          cargo +1.85.0 check --workspace --all-targets --all-features --locked
       - uses: actions/setup-go@v6
         with:
           go-version-file: tests/caddy/go.mod
-          cache-dependency-path: tests/caddy/go.sum
+          cache-dependency-path: |
+            tests/caddy/go.sum
+            tests/browser_fixture/go.sum
       - name: Build the loopback Caddy fixture
         run: python3 tests/build_caddy.py
       - name: Run owned IO and completion-runtime regressions
         run: python3 tests/owned_io.py --repeat 3
+      - name: Run native TLS HTTP WebSocket and ECH regressions
+        run: python3 tests/browser.py --build-fixture --repeat 3
+      - name: Check network profile comparison
+        run: python3 -m unittest discover -s tests -p test_network_profile.py
       - name: Upload runtime regression evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: owned-io-runtime
-          path: target/owned-runtime/final/
+          path: |
+            target/owned-runtime/final/
+            target/browser-runtime/
           if-no-files-found: ignore
       - name: Verify runtime-independent dependency graph
         run: |

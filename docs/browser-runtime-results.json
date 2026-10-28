@@ -1,0 +1,453 @@
+{
+  "date": "2026-10-28",
+  "base_commit": "80bd3e35e03bcdec77dee389d8b588f4688e0a9d",
+  "uncommitted_changes": true,
+  "scope": "Native Chromium direct TLS, HTTP/1.1, HTTP/2, HTTP/3 and WebSocket library clients; existing Naive proxy retained",
+  "host": "macos-aarch64",
+  "target": "aarch64-apple-darwin",
+  "native": {
+    "abi": 5,
+    "fingerprint": "d9ba5b8cc0de721efaf7400097d21cf2e67e3a9c04e000dca06cf92b3f1e46d9",
+    "archive_sha256": "8f8bb64be210f63e6d5e2a6b98e6872e4126e7c40aa2141a89d93eff4ef22e7e",
+    "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+    "upstream": {
+      "abi": 5,
+      "chromium": "154.0.8037.49",
+      "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+      "tag": "v154.0.8037.49-5",
+      "url": "https://github.com/klzgrad/naiveproxy.git"
+    }
+  },
+  "fixture": {
+    "source": "tests/browser_fixture",
+    "binary_sha256": "00a405a2e459950c4cf7a2fd7582cb51c0fb55f0301178afa75b451d9a217fee",
+    "transport": "loopback only",
+    "certificate": "temporary self-signed localhost certificate trusted only by the test context"
+  },
+  "validation": {
+    "browser_runtime": {
+      "command": "python3 tests/browser.py --repeat 5",
+      "repeat": 5,
+      "tests_per_round": 12,
+      "passed": 60,
+      "failed": 0,
+      "ignored": 0,
+      "source_hashes_verified": true,
+      "log": "target/browser-runtime/tests.log"
+    },
+    "naive_regressions": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 python3 tests/owned_io.py --repeat 3 --output target/browser-naive-regression",
+      "repeat": 3,
+      "passed_test_executions": 96,
+      "same_native_archive": true,
+      "coverage": "owned IO, monoio/compio runtime ownership, H2/H3 CONNECT and half-close",
+      "source_note": "Run before the final HTTP/WebSocket future Send fix; only the two new Rust browser files changed afterward. Final browser runtime and unit checks cover that change.",
+      "receipt": "target/browser-naive-regression/results.json"
+    },
+    "workspace": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 cargo test --workspace --all-features --locked",
+      "passed": 56,
+      "failed": 0,
+      "ignored": 21,
+      "source_note": "Before the final browser future Send fix; final affected library checks are recorded separately. Ignored browser/Caddy cases are exercised by their fixture runners.",
+      "log": "target/browser-workspace-tests.log"
+    },
+    "final_library_units": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 cargo test -p naive-rs --lib --all-features --locked",
+      "passed": 5,
+      "failed": 0,
+      "ignored": 0,
+      "includes": "public client futures satisfy Send without unsafe Send implementations",
+      "log": "target/browser-unit-final.log"
+    },
+    "no_default_features": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 cargo test -p naive-rs --no-default-features --test owned --locked",
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0,
+      "log": "target/browser-no-default.log"
+    },
+    "distribution": {
+      "command": "MACOSX_DEPLOYMENT_TARGET=13.0 python3 tests/artifact_distribution.py",
+      "result": "aarch64-apple-darwin: deterministic package, install/replace, 12 rejection cases, and real Rust consumer link passed",
+      "consumer": "Independent Rust project links Naive, TLS, HTTP and WebSocket API calls with default features disabled; consumer executable is not run.",
+      "log": "target/browser-artifact-validation.log"
+    },
+    "other_checks": [
+      "16-patch queue applies cleanly to the pinned upstream commit",
+      "Rust 1.99.1 Clippy: workspace, all targets and features, warnings denied",
+      "Rust formatting and Git whitespace checks",
+      "C11 public header compile and 304-byte stream-info ABI assertion",
+      "Network profile parser/comparison unit tests: 3 passed",
+      "Python compile checks and GitHub Actions actionlint"
+    ]
+  },
+  "coverage": [
+    "native TLS certificate trust, hostname rejection, owned IO and shutdown",
+    "HTTP/1.1, HTTP/2 and explicitly selected HTTP/3 with private CA verification",
+    "uploads, redirects, cross-origin credential stripping, cookies, gzip and streamed response bounds",
+    "HTTP cancellation, deadlines, retained leases and synchronous cache-hit owned-buffer release",
+    "WebSocket and WSS handshake, subprotocol, fragmentation, ping/pong, split handles and UTF-8 close metadata",
+    "WebSocket message/queue bounds, abnormal close, receive/send/handshake cancellation and close waiter lifetime",
+    "direct HTTP without a Tokio reactor; coexistence with Naive contexts without proxy policy leakage"
+  ],
+  "regression_fixes": [
+    "Release Chromium HTTP cache read buffers on synchronous completion so owned reads cannot wait forever",
+    "Remove explicit Authorization, Proxy-Authorization, Cookie and Host on cross-origin redirects",
+    "Scope FFI submission pointers before suspension so public HTTP/WebSocket connection futures remain Send",
+    "Preserve abnormal WebSocket close details while returning an error"
+  ],
+  "network_observation": {
+    "repeatability": {
+      "samples": 5,
+      "observed_fields_repeatable": true,
+      "differences": [],
+      "scope": "Recorded TLS/HTTP fields only; not proof of complete Chrome fingerprint equivalence",
+      "chrome_baseline": "not provided",
+      "not_compared": [
+        "extension permutation distribution",
+        "TLS resumption/0-RTT",
+        "QUIC transport parameters",
+        "timing, packetization, HTTP priorities and browser request-context policy"
+      ]
+    },
+    "example_http2_profile": {
+      "label": "native Chromium 154.0.8037.49",
+      "protocol": "HTTP/2.0",
+      "path": "/profile",
+      "tls": {
+        "legacy_version": "0x0303",
+        "session_id_length": 32,
+        "cipher_suites": [
+          "GREASE",
+          "0x1301",
+          "0x1302",
+          "0x1303",
+          "0xc02b",
+          "0xc02f",
+          "0xc02c",
+          "0xc030",
+          "0xcca9",
+          "0xcca8",
+          "0xc013",
+          "0xc014",
+          "0x009c",
+          "0x009d",
+          "0x002f",
+          "0x0035"
+        ],
+        "compression_methods": [
+          0
+        ],
+        "psk_modes": [
+          1
+        ],
+        "supported_versions": [
+          "GREASE",
+          "0x0304",
+          "0x0303"
+        ],
+        "key_shares": [
+          [
+            "GREASE",
+            1
+          ],
+          [
+            "0x11ec",
+            1216
+          ],
+          [
+            "0x001d",
+            32
+          ]
+        ],
+        "server_names": [
+          [
+            0,
+            "localhost"
+          ]
+        ],
+        "extension_payloads": {
+          "0xff01": "00",
+          "0x0012": "",
+          "0x0017": "",
+          "0x0005": "0100000000",
+          "0xca34": "00b80582df1302010582df1302060582df13020d0582df13020e0582df13020f0582df1302120582df1302130582df13021408839a648c9b2d010708839a648c9b2d010808839a648c9b2d010908839a648c9b2d010a08839a648c9b2d010b08839a648c9b2d010c08839a648c9b2d010d08839a648c9b2d011208839a648c9b2d011304d679090104d679090404d679090504d679090604d679090704d679090804d679090a04d679090b04d679090c04d679090d04d679090f"
+        },
+        "alps_17613": "0003026832",
+        "certificate_compression": [
+          "0x0002"
+        ],
+        "signature_algorithms": [
+          "GREASE",
+          "0x0904",
+          "0x0905",
+          "0x0906",
+          "0x0403",
+          "0x0804",
+          "0x0401",
+          "0x0503",
+          "0x0805",
+          "0x0501",
+          "0x0806",
+          "0x0601"
+        ],
+        "point_formats": [
+          0
+        ],
+        "supported_groups": [
+          "GREASE",
+          "0x11ec",
+          "0x001d",
+          "0x0017",
+          "0x0018"
+        ],
+        "alpn": [
+          "h2",
+          "http/1.1"
+        ],
+        "extensions": [
+          "0x0000",
+          "0x0005",
+          "0x000a",
+          "0x000b",
+          "0x000d",
+          "0x0010",
+          "0x0012",
+          "0x0017",
+          "0x001b",
+          "0x0023",
+          "0x002b",
+          "0x002d",
+          "0x0033",
+          "0x44cd",
+          "0xca34",
+          "0xfe0d",
+          "0xff01",
+          "GREASE",
+          "GREASE"
+        ],
+        "grease_extension_lengths": [
+          0,
+          1
+        ]
+      },
+      "headers": [
+        [
+          ":method",
+          "GET"
+        ],
+        [
+          ":authority",
+          "<origin>"
+        ],
+        [
+          ":scheme",
+          "https"
+        ],
+        [
+          ":path",
+          "/profile"
+        ],
+        [
+          "sec-ch-ua",
+          "\"Chromium\";v=\"154\", \"Google Chrome\";v=\"154\", \"Not A(Brand\";v=\"99\""
+        ],
+        [
+          "sec-ch-ua-mobile",
+          "?0"
+        ],
+        [
+          "sec-ch-ua-platform",
+          "\"macOS\""
+        ],
+        [
+          "upgrade-insecure-requests",
+          "1"
+        ],
+        [
+          "user-agent",
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36"
+        ],
+        [
+          "accept",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
+        ],
+        [
+          "sec-fetch-site",
+          "none"
+        ],
+        [
+          "sec-fetch-mode",
+          "navigate"
+        ],
+        [
+          "sec-fetch-user",
+          "?1"
+        ],
+        [
+          "sec-fetch-dest",
+          "document"
+        ],
+        [
+          "accept-encoding",
+          "gzip, deflate, br, zstd"
+        ],
+        [
+          "accept-language",
+          "en-US,en;q=0.9"
+        ],
+        [
+          "priority",
+          "u=0, i"
+        ]
+      ],
+      "observed_extension_order": [
+        "GREASE",
+        "0x002d",
+        "0x002b",
+        "0x0033",
+        "0x0000",
+        "0xff01",
+        "0x0012",
+        "0x44cd",
+        "0x001b",
+        "0x000d",
+        "0xfe0d",
+        "0x000b",
+        "0x0023",
+        "0x0017",
+        "0x000a",
+        "0x0005",
+        "0xca34",
+        "0x0010",
+        "GREASE"
+      ],
+      "normalization": [
+        "TLS nonce/session-id/key-share bytes omitted; lengths/groups retained",
+        "GREASE values normalized; extension order recorded but not compared",
+        "HTTP authority and WebSocket nonce normalized"
+      ],
+      "baseline_status": "not_provided",
+      "http2_settings": [
+        [
+          1,
+          65536
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          4,
+          6291456
+        ],
+        [
+          6,
+          262144
+        ]
+      ],
+      "http2_initial_window_increment": 15663105,
+      "http2_headers_end_stream": true
+    },
+    "chrome_equivalence": "not established"
+  },
+  "limitations": [
+    "Runtime verification is macOS arm64 only; ABI 5 cross-platform builds/runtimes have not been validated.",
+    "No browser application, emulator or VM was launched, and no system trust store was modified.",
+    "No real Chrome baseline was supplied or captured. Repeatability of recorded fields is not proof of full Chrome fingerprint equivalence.",
+    "QUIC transport fingerprints, TLS resumption/0-RTT, extension permutation distributions, traffic timing and packetization remain unverified.",
+    "Request navigation headers are an explicit profile. Full browser Fetch/CORS, high-entropy Client Hints policy, HSTS preload, disk cache and renderer behavior are outside this implementation.",
+    "The CI workflow is updated locally; these changes have not been submitted or run in hosted CI."
+  ],
+  "source_sha256": {
+    ".cargo/config.toml": "a780deb3ca43789a5e6db9bb5161616e93a0dd09b0b53fc120149e948cb4e5b3",
+    "Cargo.lock": "baad4f52b639a098de2fdadc487a881305cd271923c74c727973cb155547b021",
+    "Cargo.toml": "dbb13c807122ee48f6378c83ee39761a1d746cf143d2c7d54d34d363fb068945",
+    "crates/naive/Cargo.toml": "45760488374842ed694386c212f99cc341dbc0e771f5d2b85a5f4eb66c9ffa9c",
+    "crates/naive/benches/transport.rs": "7a4d5b009d1461521f9401dc3aea3696fb538f0848eb465bdb5e6d8d0edf50b9",
+    "crates/naive/src/browser/websocket.rs": "a211c4f545fb407bff4e1dd35e8f8134636fa9324b2b064f0becb6cbe7ce8541",
+    "crates/naive/src/browser.rs": "ab35ac5f30fa25d08a9aa43776d10cef95387f0a68bb3cb8aff92612f2a94aa3",
+    "crates/naive/src/buffer.rs": "6b2eadc87df51b7ac79cd5bc8ee6e0293af506ae57e189fb8d7564354e2d7cc6",
+    "crates/naive/src/client.rs": "3618587ff0eef9e4a3940494c172fe4d1279ee75eeff1127eaaf532575bd06c8",
+    "crates/naive/src/config.rs": "d30797ef1224bc11fae5a886e7da27f880a939bf457fbea512b00855e4695e3d",
+    "crates/naive/src/error.rs": "6a5b56d4afc1bb9dd1dc477a02190bd8c08518ec499e53cb4187ea18228951e3",
+    "crates/naive/src/lib.rs": "98c2e4bff08ead84c2c2bc5a9ca5125bdaf1206eebdddb3858ee4f249f89ffb3",
+    "crates/naive/src/network.rs": "97074c4cd675de37fbecca3abce87841d87d79e9d806bcc2e9fe560bef334c49",
+    "crates/naive/src/observability.rs": "c2348483135fcb44742950e0a483f5f1b28b68046d65290473374085f9f521db",
+    "crates/naive/src/owned.rs": "f3c71070167b7bdd58185e0e6075af0e3618e7161155bc69e9f74940fa5066fe",
+    "crates/naive/src/stream.rs": "022784c23b1cc0f5a8e66c0f9fcb758492b467f17fbeeccf1a219391ec52d511",
+    "crates/naive/tests/advanced.rs": "dbd77b10e8c95fcdb6cd0bd977d536d53915946a82ecca5fc2de301f973c017b",
+    "crates/naive/tests/aia.rs": "6c22c039d1bde88a4a6fac9495f0ac5cbbe58e44b921f523b5301bb57287e8e7",
+    "crates/naive/tests/browser.rs": "afe931af2164f464f2040f218e661e2f010019a2486e3948432c6fd20ddcbcef",
+    "crates/naive/tests/interop.rs": "bc5f0da0e59d43acef4147469f00680bd5f98b6ef359b7b6a4cd8f8d0c0f2649",
+    "crates/naive/tests/network.rs": "ed41b30ed7cf10f6803e26b798329baf6b7303378a9fe96d11ab70a0b29cbece",
+    "crates/naive/tests/owned.rs": "75ec23a019b0f6f85bfce3d578f5bb6d7b68bcadcba2e40b68c66583dc51bea9",
+    "crates/naive/tests/performance_contracts.rs": "03915d0e1f839e44b023b04999eb21fcfbe11b31a6895d94296f1126d8fe409f",
+    "crates/naive/tests/runtime.rs": "1d1b0265c3d3269a7881a268ba7d68551565633185454025450e4de71c4e63f0",
+    "crates/naive/tests/streams.rs": "461cfeca01fe3a1a3d287d353c31602ed0471ecb63ddcc421f7c94e29671c81c",
+    "crates/naive-compio/Cargo.toml": "a32ed38e12ca293a10558cc9ef47052aa6c90d9ccc620664b8b0c1ae78e3b8ec",
+    "crates/naive-compio/src/lib.rs": "7b8c9a70188a7675e7992653cca4827ca9cf742cda8d9e8f99f0f9355b0b0e19",
+    "crates/naive-compio/tests/runtime.rs": "6300d35a65ab572bbc37122d116e2ced5ec85dee28178cf201bab3a64cc4954b",
+    "crates/naive-monoio/Cargo.toml": "6f4f8f45129c4b6f3723e7f2476e63042e50dbae8c4220e8b9753ddeeccceab7",
+    "crates/naive-monoio/src/lib.rs": "b63d12feeb4270588e3246cd9ba006906ff5348276642d8d31e7531ff23c14a1",
+    "crates/naive-monoio/tests/runtime.rs": "c9951c4ebd6843c898601db3e51e1ece61d1e656f07fbf8b4f454efad5117a9b",
+    "crates/naive-sys/Cargo.toml": "7e2e620480046bb90814b802cbcd9cb3c2e72efe3791c60cefb505ddf053eb42",
+    "crates/naive-sys/build.rs": "025bf1aad7cc08cc97d3403904d248b2d987e83c06b7255d43b42539ed498226",
+    "crates/naive-sys/native-version.json": "547004438aa6eb82e80b3b98232ff8f7939bfb75b67431af8822b6eb8a9bf369",
+    "crates/naive-sys/src/lib.rs": "579c8c5fefad84880d066b55b8f2b9f84fc2d38ad77de033cf050da7ef1158ca",
+    "native/BUILD.gn": "3d0afcb46c4d7a229bcc0360877b79eff9e4dafd4ceecbd243eb25d472d537e0",
+    "native/args.gn": "f648e17cd7bc58389bd932b33e465d34fb5c5eec1af2aa33631d7962b9be7d7d",
+    "native/bridge.cc": "9754efa76850223063d37c65d8b58865b31d2d66c449848d3217155d3cbdf066",
+    "native/browser.cc": "24a8ca34deae59f8e874d27c7bd862b174f4dce51939b9210b58c0a951d7f082",
+    "native/browser.h": "b1211561ef3ba2a75103e8aaa22192b2cd3f0449ba7f3a0aaf0b39fe6640782f",
+    "native/buffers.h": "a8a443d29992c3be846f533f608657a9b6cee3b78d7fc0393fe50c61be85d271",
+    "native/ech.cc": "9ba2df5d9b0d8b26befccd5eaa5aeef21023c1761a9779fe98b7aeab016c6304",
+    "native/ech.h": "7f2921242897b4c6ce6841387cd00e8bfe55cc97de8968dbadd04d40e6beedd4",
+    "native/include/naive.h": "c4b07ade0527b916a5a5d469f58e1e8bd0cf146c50f21b486a66486d86525aae",
+    "native/include/naive_network.h": "8624c8a500b93df9ef2483efb9b9a3eafda2c379269d990d64a22a0a9320cab6",
+    "native/link_probe.cc": "3df9ae4f9f086f02e1bb96ce71c43eae0491193d52a1ec05fa43e64032854092",
+    "native/network.cc": "8b8a7bdf1d311cdfaa167ba5d27514f36a035907f36690f5f8c1e32f06564769",
+    "native/network.h": "9b008be2d863f9886f5b0c3f4ee4e38450a2991e7176e0c1b5181a0d6b4f9f2b",
+    "patches/0001-extract-network-context.patch": "da7abd6bd73f13924d6b702c1ccb89b69bca04ff82c6ba05705fabfb415757ae",
+    "patches/0002-library-build.patch": "959ae239be284029d0a38e678bcb492d2cfc1e192785654401d8c06e6be23d6a",
+    "patches/0003-lazy-padding-buffers.patch": "cc4cb7fb56dcbd474774d7dfd85f0baa2b16d16592a6f8366159217ea1f67897",
+    "patches/0004-cache-compiled-root-data.patch": "db43b2920a96b083b88a91820d02eae59d1b794bb821ad342b01f86d8467280f",
+    "patches/0005-context-network-hooks.patch": "fde096d1a8dc1d708eace137158de1df019c2607282df7084f168f9fc05c9527",
+    "patches/0006-cancel-abandoned-preamble.patch": "39b203edfe6d6cf103cc00a521c5851ade6a54d70e695ecf6f3337a3c6bfc2dd",
+    "patches/0007-ios-extra-roots.patch": "43c3eff81566f79172bb2f60ca01afb645dfd397e9519a9891b606225a713288",
+    "patches/0008-ios-certificate-network-policy.patch": "a25dd20c9b44342690052d4d77c6036f609a43c2d0d2fae1072e59d37a85bed0",
+    "patches/0009-ios-user-agent-platform.patch": "deafcb80ffafb12dbd87d4db2cb46332df3a7e28f1424d437adf29de42c615ac",
+    "patches/0010-ios-uppercase-symbol.patch": "a405875d5ae4f38342bf91c9317fec1042bd29ce62d8f0d96ebe05c409bb04e6",
+    "patches/0011-android-macos-host.patch": "fb3fef58d18096aef9daaf8f94ff3c8bbaa27a98a7aa74ac30240332d3630906",
+    "patches/0012-proxy-connection-info.patch": "088293bdc02f422a71687f0a11dde6dd1fe0d82c2cc271979790c92bcd11ca1f",
+    "patches/0013-network-context-options.patch": "1e43f89df99acac62cedeec60087f8a0775ed9b443bb511768e865c43bfa96bd",
+    "patches/0014-android-archive-link.patch": "d200df61ff409e1bbe544ccd10f3a96548e0fd0e2eb50876b216e16dabd8cc82",
+    "patches/0015-connect-half-close.patch": "bd06650a37ea071541855e2e2453c4c7386f207aab589c08d5d4f022fbd2d6c3",
+    "patches/0016-release-synchronous-http-read-buffer.patch": "fb10582ba449a3c62a940d0454db66dc339e4231ccddf0c07e4f5e6da1990f68",
+    "patches/series": "b9e060b63074a8762c2d26b4c1d6be631e466bc0cb80ae02d7c1b869da949c75",
+    "tests/aia_interop.py": "9fe6ff2b2e875950c28204904c784ab0d9bc80fbf1f912b836329045b71946ea",
+    "tests/artifact_distribution.py": "5ce18125fd32ea4a7304ab019d457440bfeae2fb40eba0d9a13c64f1bc378813",
+    "tests/browser.py": "7a06e250df99759415b8f74d05bd11680bc36619e471831b7b601e007e6032c1",
+    "tests/build_caddy.py": "83aecc65eb6b688148862559cd91bd92b4fea1eb6cf72a6d55fc105c0169c31c",
+    "tests/caddy/go.mod": "14d0429465a16b4b727d19347816c1c185a95ec97632e658baa21f2a3570f615",
+    "tests/caddy/go.sum": "e8c745a01765498bfd9764c429e6fbd53431b8aba8c83ce772ab2ef7f4265c62",
+    "tests/interop.py": "98fe46613da6e093e90879830b57abe11e32cc319c07b8131b5e91855b3ec296",
+    "tests/network_profile.py": "2c4d4f01907f2d5c43f17bcec1bba0c87708ccaf34ca319ea1f735ae1824d3e7",
+    "tests/owned_io.py": "8107afbeb29bb8a0349ac279820695d383a627694ff08532a6b58485aeb75e86",
+    "tests/perf/build_reference.py": "ce0eb6b950566037947268ec20efe2e7d8cfaebb47be8c83067dfea1588b7ad0",
+    "tests/perf/run.py": "ed17f7fba9118b8b37fcff71b629db6193614e27ea4e9ee2b29f7fed77bc2850",
+    "tests/perf/summarize.py": "1505c1c329f0411225799419bfa4966d015c6a7fb6117bd6fc3ec1904a7a37fd",
+    "tests/support/completion_cases.rs": "db1df39144d7a3d20780cea8dc522a42c8a68ed69d6fe09dd47f96ff04f2e018",
+    "tests/support/io_fixture.rs": "ac1fcf224fe345186ce803f19dc916a9e9482a9b1f91cc0399c2f49102aafbe5",
+    "tests/test_network_profile.py": "ef8347ff82a1423db1a7667918a5af50d35983e7a6ec2ae6028227c5ebfc1032",
+    "upstream.lock.json": "b709602ce1b879645519db49522db7ef18b756ea62a27820a982bde6a985e1a1",
+    "xtask/src/artifact.rs": "529c9895603f2eba588f2ed8082a6b8f7b8ab2ba228808969ed92421a1d4d0c7",
+    "xtask/src/main.rs": "52925f181fc3c607a283b7a6443bb8a50f27e0cf71f48ab72ac3d1460234b394",
+    "xtask/src/platform.rs": "191064766235e12da6d718fcf5ecdd24f6a1b784c366c6c6d11c7494488c5fac",
+    "tests/browser_fixture/go.mod": "297d5579a270d58927e2c3e03adaae612569f51590a95350b80a783a6e79fc62",
+    "tests/browser_fixture/go.sum": "71db21ca2f376756f8d84d55c2d9222d841118caef84a3d49e2ca9e992942c44",
+    "tests/browser_fixture/main.go": "4a8117254c9326a30a669fc58e24e587c4f84c42d9747b3e961a5556445033cb"
+  },
+  "raw_receipt": "target/browser-runtime/results.json"
+}

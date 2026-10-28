@@ -130,12 +130,17 @@ impl std::fmt::Debug for NetworkConfig {
             .finish()
     }
 }
-impl NetworkConfig {
+pub(crate) struct ClientHooks {
+    pub network: NetworkConfig,
+    pub certificate_verifier: Option<Arc<dyn crate::CertificateVerifier>>,
+}
+impl ClientHooks {
     pub(crate) fn hooks(self: &Arc<Self>) -> Option<sys::NetworkHooks> {
-        if self.resolver.is_none()
-            && self.socket_control.is_none()
-            && self.tcp_dialer.is_none()
-            && self.udp_dialer.is_none()
+        if self.network.resolver.is_none()
+            && self.network.socket_control.is_none()
+            && self.network.tcp_dialer.is_none()
+            && self.network.udp_dialer.is_none()
+            && self.certificate_verifier.is_none()
         {
             return None;
         }
@@ -143,10 +148,14 @@ impl NetworkConfig {
             context: Arc::as_ptr(self).cast_mut().cast(),
             retain: retain_context,
             release: release_context,
-            resolve: self.resolver.as_ref().map(|_| resolve as _),
-            control: self.socket_control.as_ref().map(|_| control as _),
-            dial_tcp: self.tcp_dialer.as_ref().map(|_| dial as _),
-            dial_udp: self.udp_dialer.as_ref().map(|_| dial_udp as _),
+            resolve: self.network.resolver.as_ref().map(|_| resolve as _),
+            control: self.network.socket_control.as_ref().map(|_| control as _),
+            dial_tcp: self.network.tcp_dialer.as_ref().map(|_| dial as _),
+            dial_udp: self.network.udp_dialer.as_ref().map(|_| dial_udp as _),
+            verify_certificate: self
+                .certificate_verifier
+                .as_ref()
+                .map(|_| crate::certificate::verify as _),
         })
     }
 }
@@ -315,12 +324,12 @@ fn error_code(error: &io::Error) -> i32 {
     }
 }
 unsafe extern "C" fn retain_context(context: *mut c_void) {
-    unsafe { Arc::increment_strong_count(context.cast::<NetworkConfig>()) };
+    unsafe { Arc::increment_strong_count(context.cast::<ClientHooks>()) };
 }
 unsafe extern "C" fn release_context(context: *mut c_void) {
     // User hook destructors must not unwind over FFI.
     if std::panic::catch_unwind(|| unsafe {
-        drop(Arc::from_raw(context.cast::<NetworkConfig>()));
+        drop(Arc::from_raw(context.cast::<ClientHooks>()));
     })
     .is_err()
     {
@@ -336,7 +345,7 @@ unsafe extern "C" fn resolve(
     let completion = ResolveCompletion(Some(Cancellation(NonNull::new(request).unwrap())));
     // On panic the owned completion fails the request during unwinding.
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let config = unsafe { &*context.cast::<NetworkConfig>() };
+        let config = &unsafe { &*context.cast::<ClientHooks>() }.network;
         let hostname = unsafe { CStr::from_ptr(host) }
             .to_string_lossy()
             .into_owned();
@@ -367,7 +376,7 @@ unsafe extern "C" fn dial(
 ) {
     let completion = DialCompletion(Some(Cancellation(NonNull::new(request).unwrap())));
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let config = unsafe { &*context.cast::<NetworkConfig>() };
+        let config = &unsafe { &*context.cast::<ClientHooks>() }.network;
         let json = unsafe { CStr::from_ptr(addresses) }.to_bytes();
         let addresses: Vec<SocketAddr> = serde_json::from_slice(json).unwrap();
         config
@@ -384,7 +393,7 @@ unsafe extern "C" fn control(
     peer: *const c_char,
 ) -> i32 {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let config = unsafe { &*context.cast::<NetworkConfig>() };
+        let config = &unsafe { &*context.cast::<ClientHooks>() }.network;
         let peer: SocketAddr = unsafe { CStr::from_ptr(peer) }
             .to_str()
             .unwrap()
@@ -437,7 +446,7 @@ unsafe extern "C" fn dial_udp(
 ) {
     let completion = UdpCompletion(Some(Cancellation(NonNull::new(request).unwrap())));
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let config = unsafe { &*context.cast::<NetworkConfig>() };
+        let config = &unsafe { &*context.cast::<ClientHooks>() }.network;
         let peer: SocketAddr = unsafe { CStr::from_ptr(peer) }
             .to_str()
             .unwrap()

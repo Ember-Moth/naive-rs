@@ -1,6 +1,5 @@
 use crate::{
-    ClientStats, Config, ConnectionInfo, Error, Event, NaiveStream, NetworkConfig, Observer,
-    Operation,
+    ClientStats, Config, ConnectionInfo, Error, Event, NaiveStream, Observer, Operation,
     buffer::{Buffer, ReadChunk, WriteBatch},
     observability::notify,
     stream::{Shared, State},
@@ -39,7 +38,7 @@ struct Native {
 impl Native {
     fn create(
         config: String,
-        network: NetworkConfig,
+        network: crate::network::ClientHooks,
         observer: Option<Arc<dyn Observer>>,
     ) -> Result<Self, Error> {
         if unsafe { sys::naive_abi_version() } != sys::ABI_VERSION {
@@ -83,7 +82,7 @@ impl Drop for Native {
 enum Control {
     Create(
         String,
-        NetworkConfig,
+        crate::network::ClientHooks,
         Option<Arc<dyn Observer>>,
         oneshot::Sender<Result<Arc<Native>, Error>>,
     ),
@@ -191,6 +190,21 @@ pub(crate) struct Inner {
     shutdown_done: Arc<Completion>,
 }
 impl Inner {
+    pub(crate) fn next_id(&self) -> Result<u64, Error> {
+        let mut id = self.next_id.load(Ordering::Relaxed);
+        loop {
+            let next = id
+                .checked_add(1)
+                .ok_or_else(|| Error::runtime("stream ID space exhausted".into()))?;
+            match self
+                .next_id
+                .compare_exchange_weak(id, next, Ordering::Relaxed, Ordering::Relaxed)
+            {
+                Ok(_) => return Ok(id),
+                Err(current) => id = current,
+            }
+        }
+    }
     pub(crate) fn submit(&self, f: impl FnOnce(*mut sys::Engine)) -> Result<(), Error> {
         if self.native.closing.load(Ordering::SeqCst) {
             return Err(Error::closed());
@@ -250,14 +264,24 @@ pub struct NaiveClient {
 }
 impl NaiveClient {
     pub async fn new(config: Config) -> Result<Self, Error> {
+        Self::new_native(
+            config.json()?,
+            crate::network::ClientHooks {
+                network: config.network,
+                certificate_verifier: config.certificate_verifier,
+            },
+            config.observer,
+        )
+        .await
+    }
+    pub(crate) async fn new_native(
+        json: String,
+        network: crate::network::ClientHooks,
+        observer: Option<Arc<dyn Observer>>,
+    ) -> Result<Self, Error> {
         let (send, recv) = oneshot::channel();
         control()
-            .send(Control::Create(
-                config.json()?,
-                config.network.clone(),
-                config.observer.clone(),
-                send,
-            ))
+            .send(Control::Create(json, network, observer, send))
             .map_err(|_| Error::runtime("native control worker stopped".into()))?;
         let native = recv.await.map_err(|_| Error::closed())??;
         notify(&native.observer, Event::ClientReady);
@@ -294,21 +318,7 @@ impl NaiveClient {
         }
         let hostname =
             CString::new(hostname).map_err(|_| Error::invalid("hostname contains NUL"))?;
-        let mut id = self.inner.next_id.load(Ordering::Relaxed);
-        loop {
-            let next = id
-                .checked_add(1)
-                .ok_or_else(|| Error::runtime("stream ID space exhausted".into()))?;
-            match self.inner.next_id.compare_exchange_weak(
-                id,
-                next,
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            ) {
-                Ok(_) => break,
-                Err(current) => id = current,
-            }
-        }
+        let id = self.inner.next_id()?;
         let shared = Arc::new(Shared {
             state: Mutex::new(State::new()),
             inner: Arc::downgrade(&self.inner),
@@ -391,6 +401,20 @@ impl NaiveClient {
             .send(Control::Stats(self.inner.native.clone(), send))
             .map_err(|_| Error::closed())?;
         recv.await.map_err(|_| Error::closed())?
+    }
+    pub(crate) fn response_stream(&self) -> Result<NaiveStream, Error> {
+        let id = self.inner.next_id()?;
+        Ok(NaiveStream {
+            inner: self.inner.clone(),
+            shared: Arc::new(Shared {
+                state: Mutex::new(State::new()),
+                inner: Arc::downgrade(&self.inner),
+                observer: self.inner.native.observer.clone(),
+            }),
+            id,
+            closed: false,
+            owns_close: true,
+        })
     }
     pub async fn shutdown(&self) -> Result<(), Error> {
         self.inner.start_shutdown();
@@ -501,7 +525,14 @@ unsafe extern "C" fn on_event(
         let mut write = None;
         let mut dispatch = None;
         match event {
-            sys::CONNECTED => {
+            sys::CONNECTED | sys::HTTP_HEADERS => {
+                if event == sys::HTTP_HEADERS {
+                    let headers = buffer.as_ref().expect("HTTP metadata buffer missing");
+                    state.response_metadata = Some(
+                        String::from_utf8(headers.bytes(0, length).to_vec())
+                            .expect("HTTP metadata must be UTF-8"),
+                    );
+                }
                 state.connected = true;
                 connected = true;
                 handshake = state.handshake_waker.take();

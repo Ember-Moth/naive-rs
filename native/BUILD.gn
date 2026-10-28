@@ -1,7 +1,13 @@
 static_library("naive_native") {
   complete_static_lib = true
   configs -= [ "//build/config/compiler:thin_archive" ]
-  sources = [ "bridge.cc", "network.cc", "network.h", "ech.cc", "ech.h", "include/naive.h", "include/naive_network.h" ]
+  sources = [ "bridge.cc", "browser.cc", "browser.h", "buffers.h", "network.cc", "network.h", "ech.cc", "ech.h", "include/naive.h", "include/naive_network.h",
+    "cert_verifier.cc", "cert_verifier.h",
+    # The trimmed platform-ICU build omits base:i18n. WebSocket framing still
+    # needs these ICU-independent, upstream UTF-8 validator implementations.
+    "//base/i18n/streaming_utf8_validator.cc",
+    "//base/i18n/utf8_validator_tables.cc",
+  ]
   deps = [ "//net:naive_core", "//build/config:shared_library_deps" ]
 }
 

@@ -20,7 +20,50 @@ pub const DESTROYED: i32 = 5;
 pub const READ_DEADLINE: i32 = 6;
 pub const WRITE_DEADLINE: i32 = 7;
 pub const WRITE_SHUTDOWN: i32 = 8;
-pub const ABI_VERSION: u32 = 4;
+pub const HTTP_HEADERS: i32 = 9;
+pub const ABI_VERSION: u32 = 6;
+
+pub type WebSocketCallback = unsafe extern "C" fn(*mut c_void, u64, i32, i32, *const u8, usize);
+pub const WS_OPEN: i32 = 1;
+pub const WS_MESSAGE: i32 = 2;
+pub const WS_SENT: i32 = 3;
+pub const WS_CLOSED: i32 = 4;
+pub const WS_ERROR: i32 = 5;
+pub const WS_DESTROYED: i32 = 6;
+
+unsafe extern "C" {
+    pub fn naive_browser_user_agent() -> *const c_char;
+    pub fn naive_browser_http(
+        engine: *mut Engine,
+        id: u64,
+        json: *const c_char,
+        body: *const u8,
+        length: usize,
+        context: *mut c_void,
+    );
+    pub fn naive_browser_websocket(
+        engine: *mut Engine,
+        id: u64,
+        json: *const c_char,
+        callback: WebSocketCallback,
+        context: *mut c_void,
+    );
+    pub fn naive_browser_ws_receive(engine: *mut Engine, id: u64);
+    pub fn naive_browser_ws_send(
+        engine: *mut Engine,
+        id: u64,
+        text: i32,
+        data: *const u8,
+        length: usize,
+    );
+    pub fn naive_browser_ws_close(
+        engine: *mut Engine,
+        id: u64,
+        code: u16,
+        reason: *const u8,
+        length: usize,
+    );
+}
 
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
@@ -82,6 +125,10 @@ pub struct NetworkRequest {
     _private: [u8; 0],
 }
 #[repr(C)]
+pub struct CertificateRequest {
+    _private: [u8; 0],
+}
+#[repr(C)]
 pub struct NetworkHooks {
     pub context: *mut c_void,
     pub retain: unsafe extern "C" fn(*mut c_void),
@@ -91,8 +138,14 @@ pub struct NetworkHooks {
     pub dial_tcp: Option<unsafe extern "C" fn(*mut c_void, *const c_char, *mut NetworkRequest)>,
     pub dial_udp:
         Option<unsafe extern "C" fn(*mut c_void, *const c_char, i64, *mut NetworkRequest)>,
+    pub verify_certificate:
+        Option<unsafe extern "C" fn(*mut c_void, *const c_char, *mut CertificateRequest)>,
 }
 unsafe extern "C" {
+    pub fn naive_cert_request_retain(request: *mut CertificateRequest);
+    pub fn naive_cert_request_release(request: *mut CertificateRequest);
+    pub fn naive_cert_request_is_cancelled(request: *mut CertificateRequest) -> i32;
+    pub fn naive_cert_verify_complete(request: *mut CertificateRequest, decision: i32);
     pub fn naive_network_request_retain(request: *mut NetworkRequest);
     pub fn naive_network_request_release(request: *mut NetworkRequest);
     pub fn naive_network_request_is_cancelled(request: *mut NetworkRequest) -> i32;

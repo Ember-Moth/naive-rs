@@ -13,6 +13,7 @@ name = "naive"
 [dependencies]
 naive-sys = { path = "../naive-sys", version = "0.1.0" }
 serde_json.workspace = true
+serde.workspace = true
 tokio = { workspace = true, optional = true }
 futures-channel = "0.3"
 futures-io = { version = "0.3", optional = true }

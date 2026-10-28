@@ -1,6 +1,11 @@
 name: Native artifacts
 on:
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Publish this version after all builds pass; leave empty for artifacts only'
+        required: false
+        type: string
   push:
     tags: ['v*']
 
@@ -15,7 +20,7 @@ jobs:
       matrix:
         include:
           - {target: aarch64-apple-darwin, runner: macos-26}
-          - {target: x86_64-apple-darwin, runner: macos-15-intel}
+          - {target: x86_64-apple-darwin, runner: macos-26}
           - {target: x86_64-unknown-linux-gnu, runner: ubuntu-24.04}
           - {target: aarch64-unknown-linux-gnu, runner: ubuntu-24.04}
           - {target: aarch64-linux-android, runner: ubuntu-24.04}
@@ -35,8 +40,10 @@ jobs:
       IPHONEOS_DEPLOYMENT_TARGET: '18.0'
       MACOSX_DEPLOYMENT_TARGET: '13.0'
       DEPOT_TOOLS_WIN_TOOLCHAIN: '0'
-      # LLVM headers exceed Windows path limits below the checkout and hash.
-      NAIVE_NATIVE_SOURCE_ROOT: ${{ contains(matrix.target, 'windows') && 'C:\ns' || '' }}
+      # Keep sources short and on a different drive from the C: Windows SDK.
+      # Chromium otherwise emits long relative SDK include paths, which exceed
+      # GetFullPathNameA's limit before parent segments are normalized.
+      NAIVE_NATIVE_SOURCE_ROOT: ${{ contains(matrix.target, 'windows') && 'D:\ns' || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,12 +79,17 @@ jobs:
           esac
           echo "CARGO_TARGET_${key}_LINKER=$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/$tool" >> "$GITHUB_ENV"
       - name: Validate release version
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || inputs.release_version != ''
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
         run: |
           python3 - <<'PY'
           import os, tomllib
           version = tomllib.load(open('Cargo.toml', 'rb'))['workspace']['package']['version']
-          assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'tag must match Cargo version'
+          if os.environ['GITHUB_REF_TYPE'] == 'tag':
+              assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'tag must match Cargo version'
+          else:
+              assert os.environ['RELEASE_VERSION'] == version, 'requested release must match Cargo version'
           PY
       - uses: actions/cache@v4
         with:
@@ -110,7 +122,7 @@ jobs:
         run: cargo xtask package --target "$TARGET"
       - name: Verify package install and consumer link
         if: matrix.target == 'aarch64-apple-darwin' || matrix.target == 'x86_64-apple-darwin' || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-msvc'
-        run: python3 tests/artifact_distribution.py
+        run: python3 tests/artifact_distribution.py --target "$TARGET"
       - uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.target }}
@@ -118,12 +130,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   release:
-    if: github.ref_type == 'tag'
+    if: github.ref_type == 'tag' || inputs.release_version != ''
     needs: build
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      actions: read
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           pattern: native-*
@@ -132,4 +146,22 @@ jobs:
       - name: Publish immutable versioned native archives
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          library_ok="$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f head_sha="$GITHUB_SHA" -f status=success -f per_page=10 \
+            --jq '.workflow_runs | any(.conclusion == "success")')"
+          test "$library_ok" = true || { echo 'Library CI must pass for this commit before publication'; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            release_tag="$GITHUB_REF_NAME"
+            tag_options=(--verify-tag)
+          else
+            release_tag="v$RELEASE_VERSION"
+            existing="$(git ls-remote --tags origin "refs/tags/$release_tag")"
+            test -z "$existing" || { echo "Refusing to replace existing tag $release_tag"; exit 1; }
+            tag_options=(--target "$GITHUB_SHA")
+          fi
+          notes="docs/releases/${release_tag#v}.md"
+          test -f "$notes"
+          gh release create "$release_tag" artifacts/* --repo "$GITHUB_REPOSITORY" \
+            "${tag_options[@]}" --title "$release_tag" --notes-file "$notes"

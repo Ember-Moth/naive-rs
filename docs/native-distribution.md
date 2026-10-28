@@ -61,10 +61,16 @@ python3 tests/artifact_distribution.py
 The distribution test installs a real archive through a local HTTP server,
 checks rejected digests/versions/targets/members and atomic replacement, and
 compiles and links a separate Rust consumer using the installed library.
+Use `--target <triple>` to verify a cross-compiled package. The consumer is linked
+for that target and is never executed; Intel macOS packages can be checked on an
+Apple Silicon runner with the current SDK.
 
 `.github/workflows/native-artifacts.yml` builds the target matrix. Manual runs
-produce reviewable workflow artifacts. A `v<crate-version>` tag publishes a
-GitHub release only after every build job succeeds. Existing releases are not
+produce reviewable workflow artifacts. Supplying `release_version` publishes that
+version only after every build job succeeds, creating its tag at the tested
+workflow commit. An existing tag is never replaced by this manual path.
+A `v<crate-version>` tag also triggers publication after the matrix succeeds.
+Version-specific release notes live in `docs/releases/`. Existing releases are not
 overwritten by the workflow. All platform jobs compile and link without launching test binaries or full
 apps. Package validation checks installation, rejection cases and consumer
 linking; it does not start a simulator or VM.
