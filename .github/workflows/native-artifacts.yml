@@ -23,7 +23,7 @@ jobs:
           - {target: armv7-linux-androideabi, runner: ubuntu-24.04}
           - {target: aarch64-apple-ios, runner: macos-26}
           - {target: aarch64-apple-ios-sim, runner: macos-26}
-          - {target: x86_64-apple-ios, runner: macos-15-intel}
+          - {target: x86_64-apple-ios, runner: macos-26}
           - {target: x86_64-pc-windows-msvc, runner: windows-2025}
           - {target: aarch64-pc-windows-msvc, runner: windows-2025}
     runs-on: ${{ matrix.runner }}
