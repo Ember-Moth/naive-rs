@@ -10,11 +10,16 @@ on:
         description: 'Optional completed native build run to reuse; code/dependencies/tests must match'
         required: false
         type: string
+      reuse_run:
+        description: 'Optional run with compatible SDKs; reruns every Rust/package check and builds missing targets'
+        required: false
+        type: string
   push:
     tags: ['v*']
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   build:
@@ -102,7 +107,15 @@ jobs:
           key: naive-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('upstream.lock.json') }}
       - run: cargo xtask check-patches
       - run: cargo xtask toolchain --target "$TARGET"
+      - name: Restore compatible native SDK
+        id: native_cache
+        if: inputs.reuse_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.reuse_run }}
+        run: python3 tools/release-assets.py restore "$SOURCE_RUN" "$TARGET"
       - run: cargo xtask build --target "$TARGET" --jobs 2
+        if: steps.native_cache.outputs.reused != 'true'
       - name: Select matching Linux Clang and LLD
         if: contains(matrix.target, 'unknown-linux-gnu')
         run: |

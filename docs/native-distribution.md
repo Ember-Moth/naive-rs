@@ -84,3 +84,9 @@ The destination commit must also have successful Library CI before publication.
 Library CI can likewise accept a `native_run` when dispatched manually: it
 validates and installs that run's macOS arm64 SDK against the current native
 fingerprint, then runs the normal Rust, MSRV and runtime checks.
+
+For Rust or test-only fixes, the native matrix's `reuse_run` input can restore
+individual SDKs from successful target jobs with matching native fingerprints.
+Missing targets are rebuilt. Every target still runs the current Rust linking,
+packaging and applicable consumer checks; this differs from source-equivalent
+promotion, which also requires the Rust and test sources to be unchanged.

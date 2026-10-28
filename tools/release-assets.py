@@ -72,6 +72,24 @@ def check_run(repository, run_id):
     print("All native target jobs passed in run", run_id)
 
 
+def restore_sdk(repository, run_id, target, install_to=None):
+    if target not in targets():
+        raise RuntimeError("unsupported target: " + target)
+    info = json.loads(run("gh", "api", f"repos/{repository}/actions/runs/{run_id}"))
+    if info["path"] != ".github/workflows/native-artifacts.yml":
+        raise RuntimeError("source run is not the native-artifacts workflow")
+    jobs = json.loads(run("gh", "api", f"repos/{repository}/actions/runs/{run_id}/jobs?filter=latest&per_page=100"))["jobs"]
+    passed = any(job["name"].startswith(f"build ({target},") and job["conclusion"] == "success" for job in jobs)
+    if not passed:
+        print("No successful source job; build native SDK:", target)
+        return False
+    with tempfile.TemporaryDirectory(prefix="native-cache-") as temporary:
+        subprocess.run(["gh", "run", "download", str(run_id), "--repo", repository,
+                        "--name", "native-" + target, "--dir", temporary], cwd=ROOT, check=True)
+        verify_assets(Path(temporary), [target], install_to or ROOT / "target/native/lib")
+    return True
+
+
 def verify_assets(directory, selected, install_to=None):
     version = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]["version"]
     selected = set(selected) if selected else targets()
@@ -119,6 +137,11 @@ def main():
     previous_run = commands.add_parser("run")
     previous_run.add_argument("run_id", type=int)
     previous_run.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY"))
+    restore = commands.add_parser("restore")
+    restore.add_argument("run_id", type=int)
+    restore.add_argument("target")
+    restore.add_argument("--repository", default=os.environ.get("GITHUB_REPOSITORY"))
+    restore.add_argument("--install-to", type=Path)
     assets = commands.add_parser("assets")
     assets.add_argument("directory", type=Path)
     assets.add_argument("--target", action="append")
@@ -130,6 +153,13 @@ def main():
         if not args.repository or args.run_id <= 0:
             parser.error("repository and a positive run ID are required")
         check_run(args.repository, args.run_id)
+    elif args.command == "restore":
+        if not args.repository or args.run_id <= 0:
+            parser.error("repository and a positive run ID are required")
+        reused = restore_sdk(args.repository, args.run_id, args.target, args.install_to)
+        if os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+                output.write("reused=" + str(reused).lower() + "\n")
     else:
         verify_assets(args.directory, args.target, args.install_to)
 

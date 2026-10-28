@@ -451,7 +451,9 @@ fn check_unconnected_socket(socket: &Socket<'_>) {
 #[cfg(windows)]
 fn check_unconnected_socket(socket: &Socket<'_>) {
     use std::os::windows::io::{AsRawSocket, AsSocket};
-    use windows_sys::Win32::Networking::WinSock::*;
+    use windows_sys::Win32::Networking::WinSock::{
+        SO_RCVBUF, SOCKADDR_STORAGE, SOCKET, SOCKET_ERROR, SOL_SOCKET, getpeername, setsockopt,
+    };
     let handle = socket.as_socket().as_raw_socket() as SOCKET;
     let mut peer: SOCKADDR_STORAGE = unsafe { std::mem::zeroed() };
     let mut len = std::mem::size_of_val(&peer) as i32;
