@@ -5,3 +5,7 @@ xtask = "run --package xtask --"
 # App/Xcode consumers of a Rust staticlib must also use -ObjC themselves.
 [target.'cfg(target_vendor = "apple")']
 rustflags = ["-C", "link-arg=-Wl,-ObjC"]
+
+# Chromium's non-component Windows build uses the static release CRT (/MT).
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]

@@ -4,6 +4,13 @@ use std::{env, fs, io, path::PathBuf};
 fn main() {
     println!("cargo:rerun-if-env-changed=NAIVE_NATIVE_DIR");
     let target = env::var("TARGET").unwrap();
+    if target.ends_with("windows-msvc") {
+        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
+        assert!(
+            features.split(',').any(|feature| feature == "crt-static"),
+            "native Windows library uses /MT; enable -C target-feature=+crt-static in the consuming Cargo workspace"
+        );
+    }
     let root = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").unwrap()).join("../..");
     let dir = env::var_os("NAIVE_NATIVE_DIR")
         .map(PathBuf::from)

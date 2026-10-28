@@ -49,6 +49,18 @@ subdirectories, but avoid the deeply nested checkout prefix that can exceed
 LLVM's Windows path limits. Toolchain caches and packaged outputs remain under
 `target/native/` in the checkout.
 
+The Windows archive uses the static release C runtime (`/MT`). Final Rust links
+must use the same runtime; this repository configures it in `.cargo/config.toml`.
+External Cargo workspaces must also set:
+
+```toml
+[target.'cfg(all(target_os = "windows", target_env = "msvc"))']
+rustflags = ["-C", "target-feature=+crt-static"]
+```
+
+`naive-sys` rejects a Windows build without this setting. Windows system DLLs
+remain dynamically linked.
+
 For Linux targets, `xtask toolchain` downloads the pinned upstream Bullseye
 headers/libraries and verifies their SHA-256 before installation. It uses the
 host-native Clang and GN, including on Apple Silicon. No Linux system image or
