@@ -29,14 +29,19 @@ fn command(cwd: &Path, program: &str, args: &[&str]) -> Command {
 }
 
 fn checked(mut command: Command) -> Result<()> {
-    if !command.status()?.success() {
+    let status = command
+        .status()
+        .map_err(|error| format!("cannot run {command:?}: {error}"))?;
+    if !status.success() {
         return Err(format!("command failed: {command:?}").into());
     }
     Ok(())
 }
 
 fn output(mut command: Command) -> Result<String> {
-    let result = command.output()?;
+    let result = command
+        .output()
+        .map_err(|error| format!("cannot run {command:?}: {error}"))?;
     if !result.status.success() {
         return Err(format!("{command:?}: {}", String::from_utf8_lossy(&result.stderr)).into());
     }
@@ -232,9 +237,10 @@ fn prepare(root: &Path, force_check: bool) -> Result<PathBuf> {
 }
 
 fn description(src: &Path, out: &str, what: &str) -> Result<Vec<String>> {
+    let gn = src.join(format!("gn/out/gn{}", env::consts::EXE_SUFFIX));
     let text = output(command(
         src,
-        &format!("./gn/out/gn{}", env::consts::EXE_SUFFIX),
+        gn.to_str().ok_or("non-UTF-8 GN executable path")?,
         &["desc", out, "//naive_rs:link_probe", what, "--format=json"],
     ))?;
     let value: serde_json::Value = serde_json::from_str(&text)?;
@@ -332,15 +338,16 @@ fn run() -> Result<()> {
     if os == "android" {
         platform::prepare_android(&src)?;
     }
-    let exe = if cfg!(windows) { ".exe" } else { "" };
-    let gn = format!("./gn/out/gn{exe}");
+    // Resolve before spawning: on Windows a relative program path is looked
+    // up from the parent process, independently of Command::current_dir.
+    let gn = src.join(format!("gn/out/gn{}", env::consts::EXE_SUFFIX));
     // Chromium's Windows archive ships the MSVC driver, not clang.exe.
     let compiler = if cfg!(windows) {
         "clang-cl.exe"
     } else {
         "clang"
     };
-    if !src.join(format!("gn/out/gn{exe}")).exists()
+    if !gn.is_file()
         || !src
             .join(format!(
                 "third_party/llvm-build/Release+Asserts/bin/{compiler}"
@@ -362,7 +369,11 @@ fn run() -> Result<()> {
     }
     fs::create_dir_all(src.join(&out))?;
     fs::write(src.join(&out).join("args.gn"), &gn_args)?;
-    let mut generate = command(&src, &gn, &["gen", &out, "--fail-on-unused-args"]);
+    let mut generate = command(
+        &src,
+        gn.to_str().ok_or("non-UTF-8 GN executable path")?,
+        &["gen", &out, "--fail-on-unused-args"],
+    );
     generate.env("DEPOT_TOOLS_WIN_TOOLCHAIN", "0");
     checked(generate)?;
     checked(command(

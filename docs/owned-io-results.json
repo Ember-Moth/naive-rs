@@ -76,5 +76,6 @@
     "Initialize Android SDK and install pinned NDK before selecting its compiler",
     "Use the actual Chromium Windows clang-cl.exe driver and explicit GN executable suffix",
     "Link Linux targets with matching Chromium Clang/LLD and an independent unmodified glibc SDK"
-  ]
+  ],
+  "validated_source_commit": "a0aed81c39e9782d112c9c2485dbe7a18304cf16"
 }

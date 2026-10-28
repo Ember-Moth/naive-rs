@@ -564,5 +564,6 @@
     "pushed": false,
     "release_published": false
   },
-  "rust_sources_sha256": "356297e869631ac6dc1a41ed868110e9d0649744afccdc14e4bca2a9f98c6e91"
+  "rust_sources_sha256": "356297e869631ac6dc1a41ed868110e9d0649744afccdc14e4bca2a9f98c6e91",
+  "validated_source_commit": "a0aed81c39e9782d112c9c2485dbe7a18304cf16"
 }
