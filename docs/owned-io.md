@@ -108,6 +108,9 @@ adds that driver. No Tokio compatibility layer is used.
 `naive-compio::Stream` implements compio-io 0.10 `AsyncRead` and `AsyncWrite`.
 The compio adapter requires Rust 1.93 because its buffer dependency uses the
 stabilized `MaybeUninit` slice APIs; the core and monoio adapter require 1.85.
+The full compio runtime is a development-only integration fixture and can have
+a newer compiler requirement. Its builds and runtime tests use stable Rust;
+the adapter's minimum-version check covers its public library dependencies.
 Its normal dependencies contain the IO/buffer traits, not the compio runtime.
 Both adapters retain local owners on the polling thread for trait operations,
 so thread-local `Rc`-based buffers remain usable. Their explicit `read_owned`
