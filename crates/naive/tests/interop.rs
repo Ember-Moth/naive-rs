@@ -4,6 +4,9 @@ use naive::{Config, NaiveClient};
 use std::{env, time::Duration};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
+#[path = "../../../tests/support/io_fixture.rs"]
+mod fixture;
+
 fn config(scheme: &str, trusted: bool, password: &str) -> Config {
     let port = env::var("NAIVE_TEST_PROXY_PORT").expect("run tests/interop.py");
     let mut config = Config::new(format!("{scheme}://test:{password}@localhost:{port}"));
@@ -182,6 +185,192 @@ async fn owned_io_keeps_read_direction_open_after_local_fin() {
         .await
         .unwrap();
         client.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the local Caddy fixture; run python3 tests/interop.py --owned-io"]
+async fn half_close_drains_mixed_writes_and_preserves_split_owned_reads() {
+    use std::{
+        future::poll_fn,
+        io::{IoSlice, Read, Write},
+    };
+    for scheme in ["https", "quic"] {
+        for size in [0, 1, 65_537, 196_613] {
+            let request: Vec<u8> = (0..size).map(|n| (n % 251) as u8).collect();
+            let expected_request = request.clone();
+            let mut expected_response = request.clone();
+            expected_response.reverse();
+            expected_response.extend_from_slice(b"after FIN");
+            let reply = expected_response.clone();
+            let origin = fixture::Server::origin(move |socket| {
+                let mut bytes = Vec::new();
+                socket.read_to_end(&mut bytes).unwrap();
+                assert_eq!(bytes, expected_request);
+                socket.write_all(&reply).unwrap();
+            });
+            let client = NaiveClient::new(config(scheme, true, "test"))
+                .await
+                .unwrap();
+            tokio::time::timeout(Duration::from_secs(10), async {
+                let stream = client.connect("127.0.0.1", origin.port).await.unwrap();
+                let info = stream.info().await.unwrap();
+                assert_eq!(
+                    info.protocol.as_deref(),
+                    Some(if scheme == "https" { "h2" } else { "h3" })
+                );
+                assert!(info.write_shutdown_supported);
+                let (mut reader, mut writer) = stream.into_split();
+                let send = async {
+                    let first = request.len().min(7);
+                    let mut offset = if first > 0 {
+                        poll_fn(|cx| {
+                            writer.poll_write_slices(cx, &[IoSlice::new(&request[..first])])
+                        })
+                        .await
+                        .unwrap()
+                    } else {
+                        0
+                    };
+                    while offset < request.len() {
+                        let result = writer.write_owned(request[offset..].to_vec()).await;
+                        let n = result.result.unwrap();
+                        assert!(n > 0 && n <= 65536);
+                        assert_eq!(result.transferred, n);
+                        offset += n;
+                    }
+                    writer.shutdown_write().await.unwrap();
+                    writer.shutdown_write().await.unwrap();
+                    assert_eq!(
+                        writer.write_owned(vec![1]).await.result.unwrap_err().kind(),
+                        std::io::ErrorKind::BrokenPipe
+                    );
+                    assert_eq!(
+                        poll_fn(|cx| writer.poll_write_slices(cx, &[IoSlice::new(b"x")]))
+                            .await
+                            .unwrap_err()
+                            .kind(),
+                        std::io::ErrorKind::BrokenPipe
+                    );
+                };
+                let receive = async {
+                    let mut bytes = Vec::new();
+                    loop {
+                        let result = reader.read_owned(Vec::with_capacity(8191)).await;
+                        let n = result.result.unwrap();
+                        assert_eq!(result.buffer.len(), n);
+                        bytes.extend_from_slice(&result.buffer);
+                        if n == 0 {
+                            break;
+                        }
+                    }
+                    assert_eq!(bytes, expected_response);
+                };
+                tokio::join!(send, receive);
+                drop((reader, writer));
+                assert_eq!(client.stats().await.unwrap().active_streams, 0);
+            })
+            .await
+            .unwrap();
+            client.shutdown().await.unwrap();
+            origin.finish();
+        }
+        eprintln!(
+            "{scheme}: empty/short/large FIN, split owned reads and mixed write ordering passed"
+        );
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the local Caddy fixture; run python3 tests/interop.py --owned-io"]
+async fn h2_h3_owned_read_cancel_deadline_and_shutdown_release_guards() {
+    use std::{io::Read, time::Instant};
+    for scheme in ["https", "quic"] {
+        for mode in ["cancel", "deadline", "shutdown"] {
+            let origin = fixture::Server::origin(|socket| {
+                let mut byte = [0];
+                assert_eq!(socket.read(&mut byte).unwrap(), 0);
+            });
+            let client = NaiveClient::new(config(scheme, true, "test"))
+                .await
+                .unwrap();
+            let releases = fixture::Releases::default();
+            tokio::time::timeout(Duration::from_secs(10), async {
+                let mut stream = client.connect("127.0.0.1", origin.port).await.unwrap();
+                if mode == "deadline" {
+                    stream
+                        .set_read_deadline(Some(Instant::now() + Duration::from_millis(50)))
+                        .unwrap();
+                }
+                let data = Vec::<u8>::with_capacity(4096);
+                let pointer = data.as_ptr();
+                let mut operation =
+                    Box::pin(stream.read_owned(naive::owned::Guarded::new(data, releases.guard())));
+                assert!(futures_util::poll!(&mut operation).is_pending());
+                client.stats().await.unwrap();
+                assert_eq!(releases.count(), 0);
+                if mode == "cancel" {
+                    drop(operation);
+                } else {
+                    if mode == "shutdown" {
+                        client.shutdown().await.unwrap();
+                    }
+                    let result = operation.await;
+                    let error = result.result.unwrap_err();
+                    if mode == "deadline" {
+                        assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+                    }
+                    assert_eq!(result.transferred, 0);
+                    assert_eq!(result.buffer.buffer.as_ptr(), pointer);
+                    assert_eq!(releases.count(), 0);
+                    drop(result.buffer);
+                }
+                assert_eq!(client.stats().await.unwrap().active_streams, 0);
+                releases.wait_for(1);
+                assert!(stream.write_owned(vec![1]).await.result.is_err());
+                client.shutdown().await.unwrap();
+                assert_eq!(releases.count(), 1);
+            })
+            .await
+            .unwrap();
+            origin.finish();
+        }
+        eprintln!("{scheme}: owned cancel/deadline/shutdown guards released exactly once");
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the local Caddy fixture; run python3 tests/interop.py --owned-io"]
+async fn canceling_a_shutdown_waiter_does_not_lose_fin_completion() {
+    use std::io::{Read, Write};
+    for scheme in ["https", "quic"] {
+        let origin = fixture::Server::origin(|socket| {
+            let mut request = Vec::new();
+            socket.read_to_end(&mut request).unwrap();
+            assert_eq!(request, b"done");
+            socket.write_all(b"reply").unwrap();
+        });
+        let client = NaiveClient::new(config(scheme, true, "test"))
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let mut stream = client.connect("127.0.0.1", origin.port).await.unwrap();
+            stream.write_owned(b"done".to_vec()).await.result.unwrap();
+            let mut shutdown = Box::pin(stream.shutdown_write());
+            assert!(futures_util::poll!(&mut shutdown).is_pending());
+            client.stats().await.unwrap();
+            drop(shutdown);
+            stream.shutdown_write().await.unwrap();
+            let mut response = Vec::new();
+            while let Some(chunk) = stream.read_chunk().await.unwrap() {
+                response.extend_from_slice(chunk.as_ref());
+            }
+            assert_eq!(response, b"reply");
+            client.shutdown().await.unwrap();
+        })
+        .await
+        .unwrap();
+        origin.finish();
     }
 }
 

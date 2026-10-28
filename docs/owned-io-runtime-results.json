@@ -1,0 +1,258 @@
+{
+  "date": "2026-10-28",
+  "base_commit": "ee5e589d0eb536073bc5bf3876e57786911dbc17",
+  "uncommitted_changes": true,
+  "scope": "Library runtime regressions against loopback fixtures on macOS arm64",
+  "target": "aarch64-apple-darwin",
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)\nbinary: rustc\ncommit-hash: 8bab26f4f68e0e26f0bb7960be334d5b520ea452\ncommit-date: 2026-07-14\nhost: aarch64-apple-darwin\nrelease: 1.97.1\nLLVM version: 22.1.6",
+  "native": {
+    "abi": 4,
+    "fingerprint": "c775c012ba39a90bc27a043e0c2c2c8cac6eb4ba6f4b3f1baca508a9677ac841",
+    "archive_sha256": "04d104f057f99ab259cea1b8cad3997cfebf0d792b02374ac680840223fbe7b0",
+    "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+    "build_host": "macos-aarch64"
+  },
+  "fixture": {
+    "source": "tests/build_caddy.py",
+    "caddy": "2.11.7",
+    "forwardproxy": "e747854e7874",
+    "caddy_sha256": "03d063d253991e5f18507c581cccc71d567d74f69c741adee7f6926787efd585"
+  },
+  "command": "python3 tests/owned_io.py --repeat 5",
+  "repeat": 5,
+  "passed_test_executions": 160,
+  "tests_per_iteration": {
+    "core_owned": 16,
+    "monoio_runtime": 4,
+    "compio_runtime": 4,
+    "core_h2_h3_interop": 6,
+    "monoio_h2_h3_interop": 1,
+    "compio_h2_h3_interop": 1
+  },
+  "adapter_ignored_tests": "The two Caddy-dependent tests are skipped in the ordinary adapter batch, then explicitly executed in every H2/H3 batch.",
+  "batches": [
+    {
+      "name": "01-owned",
+      "passed": true,
+      "passed_tests": 16,
+      "ignored_tests": 0,
+      "seconds": 0.156,
+      "log": "01-owned.log"
+    },
+    {
+      "name": "01-adapters",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 2,
+      "seconds": 0.193,
+      "log": "01-adapters.log"
+    },
+    {
+      "name": "01-h2-h3",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 0,
+      "seconds": 0.956,
+      "log": "01-h2-h3.log"
+    },
+    {
+      "name": "02-owned",
+      "passed": true,
+      "passed_tests": 16,
+      "ignored_tests": 0,
+      "seconds": 0.18,
+      "log": "02-owned.log"
+    },
+    {
+      "name": "02-adapters",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 2,
+      "seconds": 0.185,
+      "log": "02-adapters.log"
+    },
+    {
+      "name": "02-h2-h3",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 0,
+      "seconds": 0.957,
+      "log": "02-h2-h3.log"
+    },
+    {
+      "name": "03-owned",
+      "passed": true,
+      "passed_tests": 16,
+      "ignored_tests": 0,
+      "seconds": 0.178,
+      "log": "03-owned.log"
+    },
+    {
+      "name": "03-adapters",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 2,
+      "seconds": 0.192,
+      "log": "03-adapters.log"
+    },
+    {
+      "name": "03-h2-h3",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 0,
+      "seconds": 0.958,
+      "log": "03-h2-h3.log"
+    },
+    {
+      "name": "04-owned",
+      "passed": true,
+      "passed_tests": 16,
+      "ignored_tests": 0,
+      "seconds": 0.178,
+      "log": "04-owned.log"
+    },
+    {
+      "name": "04-adapters",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 2,
+      "seconds": 0.192,
+      "log": "04-adapters.log"
+    },
+    {
+      "name": "04-h2-h3",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 0,
+      "seconds": 0.949,
+      "log": "04-h2-h3.log"
+    },
+    {
+      "name": "05-owned",
+      "passed": true,
+      "passed_tests": 16,
+      "ignored_tests": 0,
+      "seconds": 0.178,
+      "log": "05-owned.log"
+    },
+    {
+      "name": "05-adapters",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 2,
+      "seconds": 0.191,
+      "log": "05-adapters.log"
+    },
+    {
+      "name": "05-h2-h3",
+      "passed": true,
+      "passed_tests": 8,
+      "ignored_tests": 0,
+      "seconds": 0.956,
+      "log": "05-h2-h3.log"
+    }
+  ],
+  "additional_checks": {
+    "core_no_default_features": "16 passed; 0 failed",
+    "clippy": "Rust 1.99.1, workspace, all targets/features, -D warnings passed",
+    "format": "cargo fmt and shared-fixture rustfmt passed",
+    "workflow": "actionlint passed"
+  },
+  "coverage": [
+    "owned-buffer identity, bridge allocation avoidance, retained chunks and mixed IO ordering",
+    "submitted read cancellation, unobserved completed-write cancellation, in-flight shutdown and exactly-once guard release",
+    "pre-submission deadline rejection and pointer-acquisition panic recovery",
+    "backpressured write cancellation, deadline and remote reset with known partial progress",
+    "actual monoio LegacyDriver and compio polling runtimes; Rc-backed local buffer access, initialization and drop stay on the caller thread",
+    "large partial local transfers and split read/write progress",
+    "H2/H3 empty, short and large requests; buffered/native write ordering; repeated half-close, cancelled shutdown waiter, write rejection after FIN, complete response and EOF",
+    "H2/H3 owned-read cancellation, deadline and shutdown with native lease reclamation"
+  ],
+  "fix": {
+    "file": "native/bridge.cc",
+    "before": "A real QUIC session reported tls_version=None and failed the existing TLS 1.3 assertion.",
+    "after": "Map the Chromium QUIC status sentinel to wire TLS 1.3 for a negotiated QUIC proxy session; preserve the existing assertion."
+  },
+  "source_sha256": {
+    ".cargo/config.toml": "a780deb3ca43789a5e6db9bb5161616e93a0dd09b0b53fc120149e948cb4e5b3",
+    "Cargo.lock": "4fcfb3b96365db3b1743347e09471961c3a4b27e9e51b288975b1836793e82ee",
+    "Cargo.toml": "dbb13c807122ee48f6378c83ee39761a1d746cf143d2c7d54d34d363fb068945",
+    "crates/naive/Cargo.toml": "d1799c388a2e556d8f8a8cdd3eb0562c52ab215553896868aaabfd00d2bcc6f8",
+    "crates/naive/benches/transport.rs": "7a4d5b009d1461521f9401dc3aea3696fb538f0848eb465bdb5e6d8d0edf50b9",
+    "crates/naive/src/buffer.rs": "6b2eadc87df51b7ac79cd5bc8ee6e0293af506ae57e189fb8d7564354e2d7cc6",
+    "crates/naive/src/client.rs": "920321d79efa0a7fe6a0cc9f3c243cc227f47b446a750e7dc70931a200c512c7",
+    "crates/naive/src/config.rs": "d30797ef1224bc11fae5a886e7da27f880a939bf457fbea512b00855e4695e3d",
+    "crates/naive/src/error.rs": "6a5b56d4afc1bb9dd1dc477a02190bd8c08518ec499e53cb4187ea18228951e3",
+    "crates/naive/src/lib.rs": "327044fe0b1325559d3907d2952da6bb12e969ed13428e3dcc8f9643f96533f9",
+    "crates/naive/src/network.rs": "97074c4cd675de37fbecca3abce87841d87d79e9d806bcc2e9fe560bef334c49",
+    "crates/naive/src/observability.rs": "c2348483135fcb44742950e0a483f5f1b28b68046d65290473374085f9f521db",
+    "crates/naive/src/owned.rs": "f3c71070167b7bdd58185e0e6075af0e3618e7161155bc69e9f74940fa5066fe",
+    "crates/naive/src/stream.rs": "b5b565a355e1b5bf252d0d3cfe7df3a4e0cf152227a432ba706f0544db129cb6",
+    "crates/naive/tests/advanced.rs": "dbd77b10e8c95fcdb6cd0bd977d536d53915946a82ecca5fc2de301f973c017b",
+    "crates/naive/tests/aia.rs": "6c22c039d1bde88a4a6fac9495f0ac5cbbe58e44b921f523b5301bb57287e8e7",
+    "crates/naive/tests/interop.rs": "bc5f0da0e59d43acef4147469f00680bd5f98b6ef359b7b6a4cd8f8d0c0f2649",
+    "crates/naive/tests/network.rs": "ed41b30ed7cf10f6803e26b798329baf6b7303378a9fe96d11ab70a0b29cbece",
+    "crates/naive/tests/owned.rs": "75ec23a019b0f6f85bfce3d578f5bb6d7b68bcadcba2e40b68c66583dc51bea9",
+    "crates/naive/tests/performance_contracts.rs": "03915d0e1f839e44b023b04999eb21fcfbe11b31a6895d94296f1126d8fe409f",
+    "crates/naive/tests/runtime.rs": "1d1b0265c3d3269a7881a268ba7d68551565633185454025450e4de71c4e63f0",
+    "crates/naive/tests/streams.rs": "461cfeca01fe3a1a3d287d353c31602ed0471ecb63ddcc421f7c94e29671c81c",
+    "crates/naive-compio/Cargo.toml": "a32ed38e12ca293a10558cc9ef47052aa6c90d9ccc620664b8b0c1ae78e3b8ec",
+    "crates/naive-compio/src/lib.rs": "7b8c9a70188a7675e7992653cca4827ca9cf742cda8d9e8f99f0f9355b0b0e19",
+    "crates/naive-compio/tests/runtime.rs": "6300d35a65ab572bbc37122d116e2ced5ec85dee28178cf201bab3a64cc4954b",
+    "crates/naive-monoio/Cargo.toml": "6f4f8f45129c4b6f3723e7f2476e63042e50dbae8c4220e8b9753ddeeccceab7",
+    "crates/naive-monoio/src/lib.rs": "b63d12feeb4270588e3246cd9ba006906ff5348276642d8d31e7531ff23c14a1",
+    "crates/naive-monoio/tests/runtime.rs": "c9951c4ebd6843c898601db3e51e1ece61d1e656f07fbf8b4f454efad5117a9b",
+    "crates/naive-sys/Cargo.toml": "7e2e620480046bb90814b802cbcd9cb3c2e72efe3791c60cefb505ddf053eb42",
+    "crates/naive-sys/build.rs": "53bb9672eb2538a83b7194a34ec3e364857a167672f948dea4f00a024e4211d6",
+    "crates/naive-sys/native-version.json": "5bcd2d063aed7da42987f286f36023c04f0b7f0e843613875e4314aaca3888de",
+    "crates/naive-sys/src/lib.rs": "5abe0bf6d362f0d04234c9ec0bfdab5ccf3208428749b37290214d142591d232",
+    "native/BUILD.gn": "28842c5d7c4316915946f516577b03e1e62134edea40c952625417165c494ec3",
+    "native/args.gn": "e54ebf316a30c6636547e0528125a6a9f290c603efc0a886bb12d4af7aae6655",
+    "native/bridge.cc": "871772f208df3fbe36f7b11831a1f3faa1779db34a5104d1e54b016326070932",
+    "native/ech.cc": "9ba2df5d9b0d8b26befccd5eaa5aeef21023c1761a9779fe98b7aeab016c6304",
+    "native/ech.h": "7f2921242897b4c6ce6841387cd00e8bfe55cc97de8968dbadd04d40e6beedd4",
+    "native/include/naive.h": "94a3f4cd320b98f03140db62264fc7b3243fb24bc74683b8ed6f5037e2ab05a7",
+    "native/include/naive_network.h": "8624c8a500b93df9ef2483efb9b9a3eafda2c379269d990d64a22a0a9320cab6",
+    "native/link_probe.cc": "ee908313415214de8423ad6a0c787197e75c8a7e623b68b9d285b37924a6ce68",
+    "native/network.cc": "8b8a7bdf1d311cdfaa167ba5d27514f36a035907f36690f5f8c1e32f06564769",
+    "native/network.h": "9b008be2d863f9886f5b0c3f4ee4e38450a2991e7176e0c1b5181a0d6b4f9f2b",
+    "patches/0001-extract-network-context.patch": "da7abd6bd73f13924d6b702c1ccb89b69bca04ff82c6ba05705fabfb415757ae",
+    "patches/0002-library-build.patch": "959ae239be284029d0a38e678bcb492d2cfc1e192785654401d8c06e6be23d6a",
+    "patches/0003-lazy-padding-buffers.patch": "cc4cb7fb56dcbd474774d7dfd85f0baa2b16d16592a6f8366159217ea1f67897",
+    "patches/0004-cache-compiled-root-data.patch": "db43b2920a96b083b88a91820d02eae59d1b794bb821ad342b01f86d8467280f",
+    "patches/0005-context-network-hooks.patch": "fde096d1a8dc1d708eace137158de1df019c2607282df7084f168f9fc05c9527",
+    "patches/0006-cancel-abandoned-preamble.patch": "39b203edfe6d6cf103cc00a521c5851ade6a54d70e695ecf6f3337a3c6bfc2dd",
+    "patches/0007-ios-extra-roots.patch": "43c3eff81566f79172bb2f60ca01afb645dfd397e9519a9891b606225a713288",
+    "patches/0008-ios-certificate-network-policy.patch": "a25dd20c9b44342690052d4d77c6036f609a43c2d0d2fae1072e59d37a85bed0",
+    "patches/0009-ios-user-agent-platform.patch": "deafcb80ffafb12dbd87d4db2cb46332df3a7e28f1424d437adf29de42c615ac",
+    "patches/0010-ios-uppercase-symbol.patch": "a405875d5ae4f38342bf91c9317fec1042bd29ce62d8f0d96ebe05c409bb04e6",
+    "patches/0011-android-macos-host.patch": "fb3fef58d18096aef9daaf8f94ff3c8bbaa27a98a7aa74ac30240332d3630906",
+    "patches/0012-proxy-connection-info.patch": "088293bdc02f422a71687f0a11dde6dd1fe0d82c2cc271979790c92bcd11ca1f",
+    "patches/0013-network-context-options.patch": "1e43f89df99acac62cedeec60087f8a0775ed9b443bb511768e865c43bfa96bd",
+    "patches/0014-android-archive-link.patch": "d200df61ff409e1bbe544ccd10f3a96548e0fd0e2eb50876b216e16dabd8cc82",
+    "patches/0015-connect-half-close.patch": "bd06650a37ea071541855e2e2453c4c7386f207aab589c08d5d4f022fbd2d6c3",
+    "patches/series": "d2ce94d9cd8dbd2ea80319c648d2e45f80fd2d8a33e6c95ee8af75bce9f156c0",
+    "tests/aia_interop.py": "9fe6ff2b2e875950c28204904c784ab0d9bc80fbf1f912b836329045b71946ea",
+    "tests/artifact_distribution.py": "a4869eeb97b82cebaab0ee9cd71e09e073489b03b2ee806b9858ddd89fec599f",
+    "tests/build_caddy.py": "83aecc65eb6b688148862559cd91bd92b4fea1eb6cf72a6d55fc105c0169c31c",
+    "tests/caddy/go.mod": "14d0429465a16b4b727d19347816c1c185a95ec97632e658baa21f2a3570f615",
+    "tests/caddy/go.sum": "e8c745a01765498bfd9764c429e6fbd53431b8aba8c83ce772ab2ef7f4265c62",
+    "tests/interop.py": "98fe46613da6e093e90879830b57abe11e32cc319c07b8131b5e91855b3ec296",
+    "tests/owned_io.py": "8107afbeb29bb8a0349ac279820695d383a627694ff08532a6b58485aeb75e86",
+    "tests/perf/build_reference.py": "ce0eb6b950566037947268ec20efe2e7d8cfaebb47be8c83067dfea1588b7ad0",
+    "tests/perf/run.py": "ed17f7fba9118b8b37fcff71b629db6193614e27ea4e9ee2b29f7fed77bc2850",
+    "tests/perf/summarize.py": "1505c1c329f0411225799419bfa4966d015c6a7fb6117bd6fc3ec1904a7a37fd",
+    "tests/support/completion_cases.rs": "db1df39144d7a3d20780cea8dc522a42c8a68ed69d6fe09dd47f96ff04f2e018",
+    "tests/support/io_fixture.rs": "ac1fcf224fe345186ce803f19dc916a9e9482a9b1f91cc0399c2f49102aafbe5",
+    "upstream.lock.json": "5e660f8b128868f12d227d18e1b027851063414d609d579bad8447c6cddd76e1",
+    "xtask/src/artifact.rs": "529c9895603f2eba588f2ed8082a6b8f7b8ab2ba228808969ed92421a1d4d0c7",
+    "xtask/src/main.rs": "540b689e592dc1ec1d4c2edd743e3ab7785212a781a71f24d897f086f01b297c",
+    "xtask/src/platform.rs": "191064766235e12da6d718fcf5ecdd24f6a1b784c366c6c6d11c7494488c5fac"
+  },
+  "limits": [
+    "Runtime execution was on macOS arm64. Other platform runtimes and Linux io_uring were not executed.",
+    "No application, simulator, emulator or VM was launched.",
+    "CI integration is added locally; these uncommitted changes have not run in hosted CI."
+  ],
+  "raw_record": "target/owned-runtime/final/results.json"
+}

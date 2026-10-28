@@ -810,6 +810,11 @@ void Stream::CaptureInfo() {
         version <= net::SSL_CONNECTION_VERSION_TLS1_3)
       output->tls_version =
           0x0301 + (version - net::SSL_CONNECTION_VERSION_TLS1);
+    // Chromium uses a separate connection-status sentinel for QUIC. The
+    // negotiated IETF QUIC proxy session uses TLS 1.3 on the wire.
+    else if (version == net::SSL_CONNECTION_VERSION_QUIC &&
+             protocol == net::NextProto::kProtoQUIC)
+      output->tls_version = 0x0304;
     output->ech_accepted = ssl.encrypted_client_hello;
     output->cipher_suite =
         net::SSLConnectionStatusToCipherSuite(ssl.connection_status);

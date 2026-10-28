@@ -13,8 +13,10 @@ is supplied with native builds explicitly unverified, as requested.
 
 Runtime results in the first four rows and the first P1 batch below refer to the
 snapshot recorded in `functional-results.json`. Subsequent P2 and platform work
-was validated by compilation/linking only; no runtime success is inferred from
-those checks.
+was initially validated by compilation/linking only. The later macOS arm64
+owned-IO/runtime-adapter/half-close execution is recorded separately in
+`owned-io-runtime-results.json`. Earlier cross-platform compilation snapshots
+remain tied to their recorded revisions; this runtime pass does not replace them.
 
 | Priority | Requirement | Current implementation | Evidence / remaining work |
 |---|---|---|---|
@@ -27,11 +29,11 @@ those checks.
 | P2 | ECH | Static lists, HTTPS query names and strict/opportunistic/disabled policies implemented | Native/Rust linking passes on all 10 verified targets; runtime handshake fixtures were not run |
 | P2 | Network tuning | HTTP/2 windows, QUIC initial windows and local congestion selection implemented with validation | Final native build and Rust linking pass on all 10 verified targets |
 | P2 | Early connect and explicit handshake | Early handles, explicit handshake and automatic IO readiness implemented | Fixtures compile and link on all 10 verified targets; cancellation/close paths reviewed, no new runtime execution |
-| P2 | Stream read/write deadlines | Native timers, independent deadlines and weak concurrent deadline controller implemented | Fixtures compile and link on all 10 verified targets; ordering/data retention reviewed, no new runtime execution |
+| P2 | Stream read/write deadlines | Native timers, independent deadlines and weak concurrent deadline controller implemented | macOS arm64 owned-read and backpressured-write deadlines execute successfully, including owner return and stream termination; earlier cross-platform evidence is compilation/linking |
 | P2 | Observability | Structured events, native logical-stream counters and actual proxy protocol/TLS snapshots implemented | Final native build and Rust linking pass on all 10 verified targets |
-| P2 | Owned buffer handoff | Generic buffer/guard contracts, native owned IO, local !Send copying fallback, read leases and split halves | ABI 4 core links on all 10 verified targets; new runtime fixtures compiled, not executed |
-| P2 | Completion runtime adapters | Separate monoio and compio crates; no mandatory Tokio dependency | Adapters and runtime fixtures compile/link for macOS and Linux GNU, arm64 and x86_64 |
-| P2 | Directional close | Opt-in H2/H3 FIN; explicit Unsupported on other transports | Native build/link passed; FIN/response runtime fixture not executed |
+| P2 | Owned buffer handoff | Generic buffer/guard contracts, native owned IO, local !Send copying fallback, read leases and split halves | 16 core runtime tests pass on macOS arm64, including pending and unobserved-completion cancellation, backpressure, remote reset, guard release and shutdown |
+| P2 | Completion runtime adapters | Separate monoio and compio crates; no mandatory Tokio dependency | Four ordinary tests and one H2/H3 interop test per actual monoio/compio runtime pass on macOS arm64; local buffer access and Drop stay on the caller thread |
+| P2 | Directional close | Opt-in H2/H3 FIN; explicit Unsupported on other transports | macOS arm64 runtime tests pass for FIN/response, empty and large payloads, repeated/canceled FIN waits and mixed write ordering, through core and both adapters |
 
 General UDP forwarding and a generic HTTP client remain outside the selected
 scope. Independent write close is now exposed for H2/H3 CONNECT streams. Custom UDP dialing controls the outer QUIC

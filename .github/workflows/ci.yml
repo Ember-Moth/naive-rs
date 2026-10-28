@@ -29,6 +29,21 @@ jobs:
       - run: cargo test --workspace --all-features --no-run --locked
       - run: cargo test -p naive-rs --no-default-features --no-run --locked
       - run: cargo test -p naive-rs --no-default-features --features futures-io --no-run --locked
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: tests/caddy/go.mod
+          cache-dependency-path: tests/caddy/go.sum
+      - name: Build the loopback Caddy fixture
+        run: python3 tests/build_caddy.py
+      - name: Run owned IO and completion-runtime regressions
+        run: python3 tests/owned_io.py --repeat 3
+      - name: Upload runtime regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owned-io-runtime
+          path: target/owned-runtime/final/
+          if-no-files-found: ignore
       - name: Verify runtime-independent dependency graph
         run: |
           cargo tree -p naive-rs --no-default-features -e normal > deps.txt

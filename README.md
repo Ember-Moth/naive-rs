@@ -177,8 +177,21 @@ use an unpinned branch head for a reproducible native artifact.
 
 ## Tests
 
-Default CI compiles and links test targets with `--no-run`. The runtime checks
-below are available for explicit manual validation.
+The native platform matrix compiles and links test targets with `--no-run`.
+Library CI also runs the focused owned IO, monoio/compio and H2/H3 half-close
+regressions on macOS, using loopback fixtures. It starts no full application,
+simulator or VM. Run the same suite locally after building the native library:
+
+```sh
+python3 tests/build_caddy.py
+python3 tests/owned_io.py --repeat 5
+```
+
+The suite checks in-flight cancellation, native owner/guard release, read/write
+deadlines, thread-local buffers, split IO, partial transfers and FIN/response
+ordering. Its receipt and logs are written to `target/owned-runtime/final/`;
+the recorded local result is [here](docs/owned-io-runtime-results.json).
+Other library runtime checks remain available below.
 
 `cargo test --workspace --all-features` runs local HTTP CONNECT fixtures covering fragmented
 padding, the eight-frame boundary, unpadded compatibility, large full-duplex

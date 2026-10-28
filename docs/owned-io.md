@@ -136,13 +136,27 @@ negotiates H2; check the actual capability when half-close is required.
 
 ## Validation scope
 
-Ownership, cancellation, interleaving, chunk retention and local-runtime fixtures
-are included in the Rust tests. The H2/H3 FIN/response fixture lives in the
-ignored Caddy interop tests. The requested acceptance gate for this change is
-compilation and final linking (`--no-run`), not execution of applications,
-emulators or the new runtime fixtures. See the associated validation record for
-the exact targets and source fingerprints; compilation does not establish runtime
-lifetime or protocol behavior.
+Run `python3 tests/owned_io.py --repeat 5` after building the native library and
+the pinned Caddy fixture (`python3 tests/build_caddy.py`). This executes 16 core
+owned IO tests, four ordinary tests per adapter, six core H2/H3 interop tests and
+one H2/H3 test per adapter on the current host. The two adapter interop tests are
+ignored in the ordinary batch and then explicitly executed with Caddy running.
+Each process group has a timeout, and the receipt binds results to source and
+native-archive hashes. Failures retain their logs.
+
+The regression coverage includes actual socket backpressure, cancellation both
+before observing a completed write and while IO is pending, exactly-once host
+guard release, read/write deadlines, remote reset with partial write progress,
+shutdown with outstanding owners, retained
+read leases, mixed read/write APIs, caller-thread access/drop of `!Send` buffers,
+large partial transfers and split directions. H2 and H3 both exercise empty and
+large requests, buffered/native write ordering, repeated shutdown calls, canceled FIN
+waiters, rejection of writes after FIN and complete responses sent after FIN.
+
+The local macOS arm64 result is recorded in `owned-io-runtime-results.json`.
+Library CI runs this focused suite; the cross-platform native matrix still uses
+`--no-run`. Other target runtimes, including Linux io_uring, are not established
+by the macOS result. No application, simulator, emulator or VM is launched.
 
 ## Migration from ABI 3
 

@@ -34,6 +34,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--caddy", type=Path, default=ROOT / ("target/test-tools/caddy.exe" if os.name == "nt" else "target/test-tools/caddy"))
     parser.add_argument("--target", default=os.environ.get("NAIVE_TEST_TARGET"))
+    parser.add_argument("--owned-io", action="store_true",
+                        help="also run H2/H3 half-close through the monoio and compio runtimes")
     args = parser.parse_args()
     if not args.caddy.is_file():
         parser.error("Caddy fixture missing; see the build command in --help")
@@ -96,13 +98,19 @@ def main():
                         if time.monotonic() >= deadline:
                             raise RuntimeError("Caddy startup timed out")
                         time.sleep(0.05)
-                subprocess.run(["cargo", "test", "--locked", "-p", "naive-rs", "--features", "tokio", *(["--target", args.target] if args.target else []), "--test", "interop", "--", "--ignored", "--nocapture", "--test-threads=1"],
-                               cwd=ROOT, check=True, timeout=180,
-                               env={**os.environ, "NAIVE_TEST_PROXY_PORT": str(port),
-                                    "NAIVE_TEST_ORIGIN_PORT": str(origin.server_address[1]),
-                                    "NAIVE_TEST_TRACE_DIR": str(temp),
-                                    "NAIVE_TEST_UNRELATED_CA": unrelated_cert.read_text(),
-                                    "NAIVE_TEST_CA_PEM": cert.read_text()})
+                target = ["--target", args.target] if args.target else []
+                commands = [["cargo", "test", "--locked", "-p", "naive-rs", "--features", "tokio",
+                             *target, "--test", "interop", "--", "--ignored", "--nocapture", "--test-threads=1"]]
+                if args.owned_io:
+                    commands.append(["cargo", "test", "--locked", "-p", "naive-monoio", "-p", "naive-compio",
+                                     "--all-features", *target, "--test", "runtime", "--", "--ignored", "--nocapture", "--test-threads=1"])
+                for command in commands:
+                    subprocess.run(command, cwd=ROOT, check=True, timeout=180,
+                                   env={**os.environ, "NAIVE_TEST_PROXY_PORT": str(port),
+                                        "NAIVE_TEST_ORIGIN_PORT": str(origin.server_address[1]),
+                                        "NAIVE_TEST_TRACE_DIR": str(temp),
+                                        "NAIVE_TEST_UNRELATED_CA": unrelated_cert.read_text(),
+                                        "NAIVE_TEST_CA_PEM": cert.read_text()})
             except BaseException:
                 log.flush()
                 print((temp / "caddy.log").read_text())
