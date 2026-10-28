@@ -132,7 +132,14 @@ fn prepare(root: &Path, force_check: bool) -> Result<PathBuf> {
         &["diff", "--cached", "--exit-code", "--quiet"],
     ))?;
     let host_key = format!("{}-{}", env::consts::OS, env::consts::ARCH);
-    let parent = root.join("target/native/source").join(&host_key);
+    let source_root = env::var_os("NAIVE_NATIVE_SOURCE_ROOT")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("target/native/source"));
+    if !source_root.is_absolute() {
+        return Err("NAIVE_NATIVE_SOURCE_ROOT must be an absolute path".into());
+    }
+    let parent = source_root.join(&host_key);
     fs::create_dir_all(&parent)?;
     let dest = parent.join(hash_inputs(root, false)?);
     if !dest.join(".prepared").exists() || force_check {

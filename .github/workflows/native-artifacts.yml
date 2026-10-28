@@ -35,6 +35,8 @@ jobs:
       IPHONEOS_DEPLOYMENT_TARGET: '18.0'
       MACOSX_DEPLOYMENT_TARGET: '13.0'
       DEPOT_TOOLS_WIN_TOOLCHAIN: '0'
+      # LLVM headers exceed Windows path limits below the checkout and hash.
+      NAIVE_NATIVE_SOURCE_ROOT: ${{ contains(matrix.target, 'windows') && 'C:\ns' || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
