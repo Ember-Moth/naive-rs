@@ -46,8 +46,9 @@ needs a working x86_64 user-mode execution environment. CI uses an x86_64 host f
 For Linux targets, `xtask toolchain` downloads the pinned upstream Bullseye
 headers/libraries and verifies their SHA-256 before installation. It uses the
 host-native Clang and GN, including on Apple Silicon. No Linux system image or
-virtual machine is needed. On a Linux host, the normal native/cross GCC linker
-can be used. For a final Rust link from macOS, use the supplied Clang wrapper:
+virtual machine is needed. The upstream build emits CREL relocations, so the final Rust link must use a
+compatible LLD; older GNU linkers can reject these objects. On Linux or macOS,
+use the supplied wrapper with the same pinned Clang/LLD as the native build:
 
 ```sh
 cargo xtask toolchain --target x86_64-unknown-linux-gnu
@@ -65,6 +66,24 @@ For arm64, use `aarch64-unknown-linux-gnu`, `bullseye_arm64_staging` and
 all Cargo linker arguments through and never executes the output. A preexisting
 sysroot without the matching provenance stamp is rejected rather than silently
 replaced; move that generated cache aside before reinstalling.
+
+The Chromium sysroot intentionally hides default glibc symbols newer than 2.26.
+Some Rust runtimes (for example monoio's filesystem code) need normal glibc
+symbols such as `statx`. When linking those runtimes with this pinned sysroot, prepare a
+separate link-only SDK and point the existing linker wrapper at it:
+
+```sh
+export NAIVE_LINUX_SYSROOT="$(python3 tools/prepare-linux-runtime-sysroot.py \
+  --target "$NAIVE_LINUX_TARGET" --source "$NAIVE_LINUX_SYSROOT")"
+cargo test -p naive-monoio -p naive-compio --target "$NAIVE_LINUX_TARGET" \
+  --all-features --no-run --locked
+```
+
+The script preserves the verified Chromium build sysroot, copies it to a separate
+cache and restores unmodified glibc 2.31 libraries from checksum-pinned Debian
+packages. These files are compilation/linking inputs, not installed runtime
+libraries. It runs no Debian package scripts. Linux CI uses this same link-only SDK and matching LLD for both architectures. Package provenance is
+recorded in `tools/linux-runtime-libs.json`.
 
 For Android, point at the exact installed NDK:
 

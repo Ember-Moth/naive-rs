@@ -1,0 +1,190 @@
+--- a/src/net/socket/stream_socket.h
++++ b/src/net/socket/stream_socket.h
+@@ -85,6 +85,11 @@
+   // will not be called.
+   virtual void Disconnect() = 0;
+ 
++  // Opt-in independent FIN for embedded CONNECT streams. Unsupported transports
++  // retain their existing behavior and report ERR_NOT_IMPLEMENTED.
++  virtual bool EnableHalfClose();
++  virtual int ShutdownWrite(CompletionOnceCallback callback);
++
+   // Called to test if the connection is still alive.  Returns false if a
+   // connection wasn't established or the connection is dead.  True is returned
+   // if the connection was terminated, but there is unread data in the incoming
+--- a/src/net/socket/stream_socket.cc
++++ b/src/net/socket/stream_socket.cc
+@@ -37,4 +37,10 @@
+   return OK;
+ }
+ 
++bool StreamSocket::EnableHalfClose() { return false; }
++
++int StreamSocket::ShutdownWrite(CompletionOnceCallback callback) {
++  return ERR_NOT_IMPLEMENTED;
++}
++
+ }  // namespace net
+--- a/src/net/spdy/spdy_proxy_client_socket.h
++++ b/src/net/spdy/spdy_proxy_client_socket.h
+@@ -95,6 +95,8 @@
+             int buf_len,
+             CompletionOnceCallback callback,
+             const NetworkTrafficAnnotationTag& traffic_annotation) override;
++  bool EnableHalfClose() override;
++  int ShutdownWrite(CompletionOnceCallback callback) override;
+   int SetReceiveBufferSize(int32_t size) override;
+   int SetSendBufferSize(int32_t size) override;
+   int GetPeerAddress(IPEndPoint* address) const override;
+@@ -219,6 +221,9 @@
+     kEndStreamSent,
+   };
+   EndStreamState end_stream_state_ = EndStreamState::kNone;
++  bool half_close_enabled_ = false;
++  bool peer_write_closed_ = false;
++  CompletionOnceCallback shutdown_write_callback_;
+ 
+   base::WeakPtrFactory<SpdyProxyClientSocket> weak_factory_{this};
+ };
+--- a/src/net/spdy/spdy_proxy_client_socket.cc
++++ b/src/net/spdy/spdy_proxy_client_socket.cc
+@@ -139,6 +139,7 @@
+ 
+   write_buffer_len_ = 0;
+   write_callback_.Reset();
++  shutdown_write_callback_.Reset();
+ 
+   next_state_ = STATE_DISCONNECTED;
+ 
+@@ -231,7 +232,8 @@
+   if (next_state_ == STATE_DISCONNECTED)
+     return ERR_SOCKET_NOT_CONNECTED;
+ 
+-  if (next_state_ == STATE_CLOSED && read_buffer_queue_.IsEmpty()) {
++  if ((next_state_ == STATE_CLOSED ||
++       (half_close_enabled_ && peer_write_closed_)) && read_buffer_queue_.IsEmpty()) {
+     return 0;
+   }
+ 
+@@ -279,6 +281,27 @@
+                                 buf->data());
+   write_callback_ = std::move(callback);
+   write_buffer_len_ = buf_len;
++  return ERR_IO_PENDING;
++}
++
++bool SpdyProxyClientSocket::EnableHalfClose() {
++  half_close_enabled_ = true;
++  return true;
++}
++
++int SpdyProxyClientSocket::ShutdownWrite(CompletionOnceCallback callback) {
++  if (!half_close_enabled_)
++    return ERR_NOT_IMPLEMENTED;
++  if (end_stream_state_ == EndStreamState::kEndStreamSent)
++    return shutdown_write_callback_ ? ERR_UNEXPECTED : OK;
++  if (next_state_ != STATE_OPEN || !spdy_stream_)
++    return ERR_CONNECTION_CLOSED;
++  if (write_callback_)
++    return ERR_UNEXPECTED;
++  shutdown_write_callback_ = std::move(callback);
++  end_stream_state_ = EndStreamState::kEndStreamSent;
++  auto empty = base::MakeRefCounted<IOBufferWithSize>(0);
++  spdy_stream_->SendData(empty.get(), 0, NO_MORE_DATA_TO_SEND);
+   return ERR_IO_PENDING;
+ }
+ 
+@@ -661,7 +684,8 @@
+     net_log_.AddByteTransferEvent(NetLogEventType::SOCKET_BYTES_RECEIVED, 0,
+                                   nullptr);
+ 
+-    if (end_stream_state_ == EndStreamState::kNone) {
++    peer_write_closed_ = true;
++    if (!half_close_enabled_ && end_stream_state_ == EndStreamState::kNone) {
+       // The peer sent END_STREAM. Schedule a DATA frame with END_STREAM.
+       end_stream_state_ = EndStreamState::kEndStreamReceived;
+       base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
+@@ -693,6 +717,14 @@
+ void SpdyProxyClientSocket::OnDataSent() {
+   if (end_stream_state_ == EndStreamState::kEndStreamSent) {
+     CHECK(write_callback_.is_null());
++    if (shutdown_write_callback_) {
++      base::SingleThreadTaskRunner::GetCurrentDefault()->PostTask(
++          FROM_HERE, base::BindOnce(
++            [](base::WeakPtr<SpdyProxyClientSocket> self) {
++              if (self && self->shutdown_write_callback_)
++                std::move(self->shutdown_write_callback_).Run(OK);
++            }, weak_factory_.GetWeakPtr()));
++    }
+     return;
+   }
+ 
+@@ -728,6 +760,10 @@
+ 
+   base::WeakPtr<SpdyProxyClientSocket> weak_ptr = weak_factory_.GetWeakPtr();
+   CompletionOnceCallback write_callback = std::move(write_callback_);
++  CompletionOnceCallback shutdown_callback = std::move(shutdown_write_callback_);
++  const int shutdown_result = status == OK &&
++      end_stream_state_ == EndStreamState::kEndStreamSent ? OK :
++      (status == OK ? ERR_CONNECTION_CLOSED : status);
+   write_buffer_len_ = 0;
+ 
+   // If we're in the middle of connecting, we need to make sure
+@@ -742,6 +778,8 @@
+   // This may have been deleted by read_callback_, so check first.
+   if (weak_ptr.get() && !write_callback.is_null())
+     std::move(write_callback).Run(ERR_CONNECTION_CLOSED);
++  if (weak_ptr && shutdown_callback)
++    std::move(shutdown_callback).Run(shutdown_result);
+ }
+ 
+ bool SpdyProxyClientSocket::CanGreaseFrameType() const {
+--- a/src/net/quic/quic_proxy_client_socket.h
++++ b/src/net/quic/quic_proxy_client_socket.h
+@@ -78,6 +78,8 @@
+             int buf_len,
+             CompletionOnceCallback callback,
+             const NetworkTrafficAnnotationTag& traffic_annotation) override;
++  bool EnableHalfClose() override;
++  int ShutdownWrite(CompletionOnceCallback callback) override;
+   int SetReceiveBufferSize(int32_t size) override;
+   int SetSendBufferSize(int32_t size) override;
+   int GetPeerAddress(IPEndPoint* address) const override;
+--- a/src/net/quic/quic_proxy_client_socket.cc
++++ b/src/net/quic/quic_proxy_client_socket.cc
+@@ -237,6 +237,8 @@
+ 
+   if (next_state_ != STATE_CONNECT_COMPLETE)
+     return ERR_SOCKET_NOT_CONNECTED;
++  if (stream_->fin_sent())
++    return ERR_CONNECTION_CLOSED;
+ 
+   net_log_.AddByteTransferEvent(NetLogEventType::SOCKET_BYTES_SENT, buf_len,
+                                 buf->data());
+@@ -253,6 +255,26 @@
+     write_buf_len_ = buf_len;
+   }
+ 
++  return rv;
++}
++
++bool QuicProxyClientSocket::EnableHalfClose() { return true; }
++
++int QuicProxyClientSocket::ShutdownWrite(CompletionOnceCallback callback) {
++  if (next_state_ != STATE_CONNECT_COMPLETE || !stream_)
++    return ERR_SOCKET_NOT_CONNECTED;
++  if (write_callback_)
++    return ERR_UNEXPECTED;
++  if (stream_->fin_sent())
++    return OK;
++  int rv = stream_->WriteStreamData(
++      std::string_view(), true,
++      base::BindOnce(&QuicProxyClientSocket::OnWriteComplete,
++                     weak_factory_.GetWeakPtr()));
++  if (rv == ERR_IO_PENDING) {
++    write_callback_ = std::move(callback);
++    write_buf_len_ = 0;
++  }
+   return rv;
+ }
+ 

@@ -37,7 +37,7 @@ and Cargo cross compilation. Artifacts are placed in
 `libnaive_native.a` and its `manifest.json`. The build script validates the ABI,
 target, archive digest and, in a source checkout, the native source/patch digest.
 
-The native ABI is version 3. Rebuild the native artifact after updating from an
+The native ABI is version 4. Rebuild the native artifact after updating from an
 earlier wrapper; the build script rejects mismatched artifacts.
 
 The default `portable` native profile keeps PGO and native ThinLTO disabled.
@@ -53,11 +53,11 @@ in [native distribution](docs/native-distribution.md).
 ## Use
 
 Depend on `crates/naive` (Cargo package `naive-rs`, Rust library name `naive`) and
-Tokio for the default IO adapter (native networking itself needs no Tokio reactor):
+Tokio with the opt-in IO adapter (native networking itself needs no Tokio reactor):
 
 ```toml
 [dependencies]
-naive-rs = { path = "/path/to/naive-rs/crates/naive" }
+naive-rs = { path = "/path/to/naive-rs/crates/naive", features = ["tokio"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "io-util"] }
 ```
 
@@ -103,10 +103,11 @@ certificate fetches. `NaiveClient::close_all_connections().await` closes active
 streams and pooled connections and clears DNS caches while retaining configuration.
 See [host networking and cancellation](docs/networking.md).
 
-The default `tokio` feature supplies Tokio IO traits. Use
+Default features are empty. The opt-in `tokio` feature supplies Tokio IO traits. Use
 `default-features = false, features = ["futures-io"]` for futures-io, or disable
 both features and drive the stream's `poll_read_slice`, `poll_write_slices`,
-`poll_flush_pending` and `poll_close_stream` methods with any executor. Creation,
+`poll_flush_pending` and `poll_close_stream` methods with an executor that supports
+native-thread wakeups. The monoio adapter enables its required `sync` support. Creation,
 CONNECT timeouts, cancellation and shutdown do not require a Tokio runtime.
 
 `connect_early()` and `NaiveStream::handshake()` separate stream creation from
@@ -114,6 +115,11 @@ CONNECT readiness. Streams also expose read/write deadlines, a weak deadline
 controller for split IO, and native connection information. Client counters and
 structured lifecycle events are available through `stats()` and `Config::observer`.
 ECH and HTTP/2/QUIC tuning are documented in [advanced APIs](docs/advanced.md).
+
+Optional `naive-monoio` and `naive-compio` crates adapt the same core to their
+completion-based IO traits, including local `!Send` buffers. Native owned IO and
+immutable read chunks avoid staging payload copies; their cancellation and
+memory-accounting contracts are documented in [owned IO](docs/owned-io.md).
 
 ## Ownership and async behavior
 
@@ -131,8 +137,10 @@ ECH and HTTP/2/QUIC tuning are documented in [advanced APIs](docs/advanced.md).
   submitted immediately; subsequent small writes coalesce behind it and progress
   automatically without a flush timer. Vectored writes use the same owned buffer.
   `flush()` waits for all accepted bytes; close/drop may discard unflushed bytes.
-- `AsyncWrite::shutdown` flushes and closes **both directions**. Half-close is not
-  currently supported. `NaiveStream::close` closes immediately.
+- `shutdown_write()` and IO-trait writer shutdown send an independent FIN on
+  negotiated H2/H3 streams. Other transports return `Unsupported` without
+  closing the read side. `close_after_flush()` drains and closes both directions;
+  `close()` aborts both immediately.
 - Streams hold their client alive. `NaiveClient::shutdown` cancels all streams
   across client clones and waits for context destruction. Concurrent shutdowns
   wait for the same barrier. Drop schedules cleanup without blocking an async
@@ -172,7 +180,7 @@ use an unpinned branch head for a reproducible native artifact.
 Default CI compiles and links test targets with `--no-run`. The runtime checks
 below are available for explicit manual validation.
 
-`cargo test --workspace` runs local HTTP CONNECT fixtures covering fragmented
+`cargo test --workspace --all-features` runs local HTTP CONNECT fixtures covering fragmented
 padding, the eight-frame boundary, unpadded compatibility, large full-duplex
 transfers, cancellation, authentication failure and client/stream destruction.
 Additional contracts cover directed wakeups, steady-state buffer reuse, bounded

@@ -287,5 +287,7 @@ async fn canceled_initialization_and_stream_owned_client() {
     let mut response = [0; 15];
     stream.read_exact(&mut response).await.unwrap();
     assert_eq!(&response, b"owned by stream");
-    stream.shutdown().await.unwrap();
+    std::future::poll_fn(|cx| stream.poll_close_stream(cx))
+        .await
+        .unwrap();
 }

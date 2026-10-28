@@ -94,7 +94,7 @@ def main():
                             if time.monotonic() >= deadline:
                                 raise RuntimeError("Caddy startup timed out")
                             time.sleep(.05)
-                    subprocess.run(["cargo", "test", "--locked", "-p", "naive-rs", *(["--target", os.environ["NAIVE_TEST_TARGET"]] if os.environ.get("NAIVE_TEST_TARGET") else []), "--test", "aia", "--", "--ignored", "--nocapture"],
+                    subprocess.run(["cargo", "test", "--locked", "-p", "naive-rs", "--features", "tokio", *(["--target", os.environ["NAIVE_TEST_TARGET"]] if os.environ.get("NAIVE_TEST_TARGET") else []), "--test", "aia", "--", "--ignored", "--nocapture"],
                         cwd=ROOT, check=True, timeout=120, env={**os.environ,
                             "NAIVE_AIA_PROXY_PORT": str(port), "NAIVE_AIA_PORT": str(aia_port),
                             "NAIVE_AIA_ORIGIN_PORT": str(origin.server_address[1]), "NAIVE_AIA_ROOT": root.with_suffix(".pem").read_text(),

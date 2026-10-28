@@ -35,7 +35,6 @@ jobs:
       IPHONEOS_DEPLOYMENT_TARGET: '18.0'
       MACOSX_DEPLOYMENT_TARGET: '13.0'
       DEPOT_TOOLS_WIN_TOOLCHAIN: '0'
-      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
     steps:
       - uses: actions/checkout@v4
         with:
@@ -47,7 +46,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build curl unzip xz-utils binutils gpg pkg-config gcc-aarch64-linux-gnu
+          sudo apt-get install -y ninja-build curl unzip xz-utils binutils gpg pkg-config
       - name: Install macOS tools
         if: runner.os == 'macOS'
         run: brew list ninja || brew install ninja
@@ -55,10 +54,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: powershell
         run: choco install ninja unzip -y --no-progress
+      - name: Set up Android SDK and NDK
+        if: contains(matrix.target, 'android')
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'ndk;29.0.14206865'
       - name: Select Android NDK
         if: contains(matrix.target, 'android')
         run: |
-          sdkmanager 'ndk;29.0.14206865'
           echo "NAIVE_ANDROID_NDK=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
           case "$TARGET" in
             aarch64-linux-android) key=AARCH64_LINUX_ANDROID; tool=aarch64-linux-android24-clang ;;
@@ -81,8 +84,26 @@ jobs:
       - run: cargo xtask check-patches
       - run: cargo xtask toolchain --target "$TARGET"
       - run: cargo xtask build --target "$TARGET" --jobs 2
+      - name: Select matching Linux Clang and LLD
+        if: contains(matrix.target, 'unknown-linux-gnu')
+        run: |
+          native_source="$(cargo xtask prepare --target "$TARGET")"
+          case "$TARGET" in
+            x86_64-unknown-linux-gnu) arch=amd64; key=X86_64_UNKNOWN_LINUX_GNU ;;
+            aarch64-unknown-linux-gnu) arch=arm64; key=AARCH64_UNKNOWN_LINUX_GNU ;;
+          esac
+          # Chromium emits CREL relocations that the runner's GNU ld cannot read.
+          # Restore normal glibc exports for the completion-runtime link fixtures.
+          sysroot="$(python3 tools/prepare-linux-runtime-sysroot.py --target "$TARGET" --source "$native_source/src/out/sysroot-build/bullseye/bullseye_${arch}_staging")"
+          echo "NAIVE_CLANG=$native_source/src/third_party/llvm-build/Release+Asserts/bin/clang" >> "$GITHUB_ENV"
+          echo "NAIVE_LINUX_TARGET=$TARGET" >> "$GITHUB_ENV"
+          echo "NAIVE_LINUX_SYSROOT=$sysroot" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_${key}_LINKER=$GITHUB_WORKSPACE/tools/linux-clang-linker.sh" >> "$GITHUB_ENV"
       - name: Check Rust linking for every target
         run: cargo test -p naive-rs --target "$TARGET" --all-features --no-run --locked
+      - name: Check completion adapter linking on desktop targets
+        if: matrix.target == 'aarch64-apple-darwin' || matrix.target == 'x86_64-apple-darwin' || contains(matrix.target, 'unknown-linux-gnu')
+        run: cargo test -p naive-monoio -p naive-compio --target "$TARGET" --all-features --no-run --locked
       - name: Package native SDK
         run: cargo xtask package --target "$TARGET"
       - name: Verify package install and consumer link

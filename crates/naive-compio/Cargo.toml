@@ -1,0 +1,21 @@
+[package]
+name = "naive-compio"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+license.workspace = true
+repository.workspace = true
+description = "Optional completion IO traits for naive-rs"
+
+[dependencies]
+naive-rs = { path = "../naive", version = "0.1.0", default-features = false }
+compio-buf = { version = "0.8.3", default-features = false }
+compio-io = { version = "0.10.1", default-features = false }
+
+[features]
+default = []
+bytes = ["naive-rs/bytes", "compio-buf/bytes"]
+
+[dev-dependencies]
+futures-util = "0.3"
+compio = { version = "0.19.2", default-features = false, features = ["runtime", "polling"] }

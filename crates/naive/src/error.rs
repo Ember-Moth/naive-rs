@@ -27,6 +27,7 @@ impl Error {
             -3 => io::ErrorKind::ConnectionAborted,
             -10 => io::ErrorKind::PermissionDenied,
             -4 => io::ErrorKind::InvalidInput,
+            -11 => io::ErrorKind::Unsupported,
             -7 | -118 => io::ErrorKind::TimedOut,
             -100 => io::ErrorKind::UnexpectedEof,
             -21 | -101 => io::ErrorKind::ConnectionReset,
@@ -72,3 +73,21 @@ impl fmt::Display for Error {
     }
 }
 impl std::error::Error for Error {}
+
+impl From<io::Error> for Error {
+    fn from(error: io::Error) -> Self {
+        if let Some(inner) = error.get_ref().and_then(|e| e.downcast_ref::<Self>()) {
+            return inner.clone();
+        }
+        Self {
+            code: None,
+            kind: error.kind(),
+            message: error.to_string(),
+        }
+    }
+}
+impl From<Error> for io::Error {
+    fn from(error: Error) -> Self {
+        io::Error::new(error.kind, error)
+    }
+}

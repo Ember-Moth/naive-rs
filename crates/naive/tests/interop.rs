@@ -145,6 +145,47 @@ fn net_error(value: &serde_json::Value, code: i64) -> bool {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires the local Caddy fixture; compile-only gates do not run it"]
+async fn owned_io_keeps_read_direction_open_after_local_fin() {
+    use tokio::net::TcpListener;
+    for scheme in ["https", "quic"] {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let origin = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = Vec::new();
+            socket.read_to_end(&mut request).await.unwrap();
+            assert_eq!(request, b"request before FIN");
+            socket.write_all(b"response after FIN").await.unwrap();
+            socket.shutdown().await.unwrap();
+        });
+        let client = NaiveClient::new(config(scheme, true, "test"))
+            .await
+            .unwrap();
+        tokio::time::timeout(Duration::from_secs(10), async {
+            let mut stream = client.connect("127.0.0.1", port).await.unwrap();
+            assert!(stream.info().await.unwrap().write_shutdown_supported);
+            let sent = stream.write_owned(b"request before FIN".to_vec()).await;
+            assert_eq!(sent.result.unwrap(), 18);
+            stream.shutdown_write().await.unwrap();
+            let mut response = Vec::new();
+            while let Some(chunk) = stream.read_chunk().await.unwrap() {
+                response.extend_from_slice(chunk.as_ref());
+            }
+            assert_eq!(response, b"response after FIN");
+            assert_eq!(
+                stream.write_owned(vec![1]).await.result.unwrap_err().kind(),
+                std::io::ErrorKind::BrokenPipe
+            );
+            origin.await.unwrap();
+        })
+        .await
+        .unwrap();
+        client.shutdown().await.unwrap();
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 #[ignore = "requires the local Caddy fixture; run python3 tests/interop.py"]
 async fn host_network_hooks_https_and_quic() {
     use naive::network::*;

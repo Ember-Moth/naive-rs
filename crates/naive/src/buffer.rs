@@ -73,10 +73,54 @@ impl Drop for Buffer {
     }
 }
 
-pub(crate) struct ReadChunk {
-    pub buffer: Buffer,
-    pub length: usize,
-    pub offset: usize,
+/// Immutable native read lease. Keeps only the payload allocation alive, not
+/// the stream or client. Retaining many chunks retains their allocations; hosts
+/// should bound retained chunks using `allocated_capacity`, not just `len`.
+pub struct ReadChunk {
+    pub(crate) buffer: Buffer,
+    pub(crate) length: usize,
+    pub(crate) offset: usize,
+}
+
+// SAFETY: native never overwrites a read allocation while a lease exists, and
+// this type exposes no mutable access to its data.
+unsafe impl Sync for ReadChunk {}
+impl ReadChunk {
+    pub fn len(&self) -> usize {
+        self.length - self.offset
+    }
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    pub fn allocated_capacity(&self) -> usize {
+        self.buffer.capacity
+    }
+    #[cfg(feature = "bytes")]
+    pub fn into_bytes(self) -> bytes::Bytes {
+        bytes::Bytes::from_owner(self)
+    }
+}
+impl AsRef<[u8]> for ReadChunk {
+    fn as_ref(&self) -> &[u8] {
+        self.buffer.bytes(self.offset, self.length)
+    }
+}
+impl std::fmt::Debug for ReadChunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReadChunk")
+            .field("len", &self.len())
+            .field("allocated_capacity", &self.allocated_capacity())
+            .finish()
+    }
+}
+
+/// Process-wide counters for bridge-allocated native payload storage. Foreign
+/// owned IO storage and Chromium's TLS/HTTP/QUIC allocations are excluded.
+pub fn buffer_stats() -> sys::BufferStats {
+    let mut stats = sys::BufferStats::default();
+    // SAFETY: native synchronously fills the POD with atomic snapshots.
+    unsafe { sys::naive_get_buffer_stats(&mut stats) };
+    stats
 }
 
 pub(crate) struct WriteBatch {

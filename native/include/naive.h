@@ -16,8 +16,16 @@ enum naive_event {
   NAIVE_CLOSED = 4,
   NAIVE_DESTROYED = 5,
   NAIVE_READ_DEADLINE = 6,
-  NAIVE_WRITE_DEADLINE = 7
+  NAIVE_WRITE_DEADLINE = 7,
+  NAIVE_WRITE_SHUTDOWN = 8
 };
+
+// Owned IO holds external storage until the LAST native IOBuffer reference
+// disappears, including after cancellation. Called exactly once, potentially
+// from any thread. result is a net error or 0; transferred is the known prefix.
+// The callback owns context on every submission path, even invalid arguments.
+typedef void (*naive_owned_callback)(void* context, int32_t result,
+                                     size_t transferred);
 
 // Runs on the engine IO sequence. Never block or unwind. Context belongs to
 // this STREAM, not to the engine. DESTROYED is exactly once and is the final
@@ -71,6 +79,7 @@ typedef struct naive_stream_info {
   uint64_t bytes_read;
   uint64_t bytes_written;
   uint32_t pooled_socket_reused;
+  uint32_t write_shutdown_supported;
   uint32_t ech_accepted;  // Meaningful when TLS information is available.
   uint16_t tls_version;   // TLS wire version, or 0 if unavailable.
   uint16_t cipher_suite;
@@ -125,6 +134,14 @@ void naive_engine_write(naive_engine* engine,
                         uint64_t id,
                         naive_buffer* buffer,
                         size_t length);
+void naive_engine_read_owned(naive_engine* engine, uint64_t id, uint8_t* data,
+                             size_t capacity, void* context,
+                             naive_owned_callback completed);
+void naive_engine_write_owned(naive_engine* engine, uint64_t id,
+                              const uint8_t* data, size_t length, void* context,
+                              naive_owned_callback completed);
+// Emits WRITE_SHUTDOWN. Unsupported transports fail without disconnecting.
+void naive_engine_shutdown_write(naive_engine* engine, uint64_t id);
 void naive_engine_close(naive_engine* engine, uint64_t id);
 
 #ifdef __cplusplus

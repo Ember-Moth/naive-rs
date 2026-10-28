@@ -12,3 +12,4 @@
 0012-proxy-connection-info.patch
 0013-network-context-options.patch
 0014-android-archive-link.patch
+0015-connect-half-close.patch

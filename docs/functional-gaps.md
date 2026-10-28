@@ -5,7 +5,9 @@ The existing performance work in `performance.md` remains part of the baseline.
 Native behavior stays in NaïveProxy/Chromium; the submodule remains clean and
 changes to it are maintained as ordered patches.
 
-All listed APIs and build/distribution workflows are implemented. Ten native
+All listed APIs and build/distribution workflows are implemented. ABI 4 adds
+[generic owned IO and completion-runtime adapters](owned-io.md); its compilation
+evidence is recorded separately in `owned-io-results.json`. Ten native
 targets pass compilation, final Rust linking and packaging. Windows configuration
 is supplied with native builds explicitly unverified, as requested.
 
@@ -27,9 +29,12 @@ those checks.
 | P2 | Early connect and explicit handshake | Early handles, explicit handshake and automatic IO readiness implemented | Fixtures compile and link on all 10 verified targets; cancellation/close paths reviewed, no new runtime execution |
 | P2 | Stream read/write deadlines | Native timers, independent deadlines and weak concurrent deadline controller implemented | Fixtures compile and link on all 10 verified targets; ordering/data retention reviewed, no new runtime execution |
 | P2 | Observability | Structured events, native logical-stream counters and actual proxy protocol/TLS snapshots implemented | Final native build and Rust linking pass on all 10 verified targets |
+| P2 | Owned buffer handoff | Generic buffer/guard contracts, native owned IO, local !Send copying fallback, read leases and split halves | ABI 4 core links on all 10 verified targets; new runtime fixtures compiled, not executed |
+| P2 | Completion runtime adapters | Separate monoio and compio crates; no mandatory Tokio dependency | Adapters and runtime fixtures compile/link for macOS and Linux GNU, arm64 and x86_64 |
+| P2 | Directional close | Opt-in H2/H3 FIN; explicit Unsupported on other transports | Native build/link passed; FIN/response runtime fixture not executed |
 
-General UDP forwarding, a generic HTTP client and TCP half-close were not part
-of the selected comparison gap list. Custom UDP dialing controls the outer QUIC
+General UDP forwarding and a generic HTTP client remain outside the selected
+scope. Independent write close is now exposed for H2/H3 CONNECT streams. Custom UDP dialing controls the outer QUIC
 socket; exposed Naïve streams continue to carry TCP payloads.
 
 ## Verified commands for the first P1 batch (2026-10-28)

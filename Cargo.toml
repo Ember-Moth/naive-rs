@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/naive", "crates/naive-sys", "xtask"]
+members = ["crates/naive", "crates/naive-sys", "crates/naive-monoio", "crates/naive-compio", "xtask"]
 default-members = ["crates/naive"]
 resolver = "3"
 

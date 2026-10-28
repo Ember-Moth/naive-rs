@@ -17,7 +17,7 @@ These results are from the local macOS arm64 host. They verify the changes below
 | Release tuning | Native PGO and Rust ThinLTO were built and measured. No consistently better general profile emerged; native PGO regressed HTTP/2 workloads. Native ThinLTO is incompatible with this host default linker. Defaults were kept deliberately. |
 | Missing measurements | A reproducible interleaved runner now records throughput, client CPU, RTT percentiles, RSS, native buffer counters, churn and bounded-duration soak data. |
 
-The native ABI is now **2**. Wrapper copies above exclude TLS/HTTP framing, encryption, and initial protocol padding copies. The buffer limits apply to bridge payload storage, not the entire Chromium protocol stack or its flow-control windows.
+These performance measurements used native ABI **2**; see the README for the current ABI. Wrapper copies above exclude TLS/HTTP framing, encryption, and initial protocol padding copies. The buffer limits apply to bridge payload storage, not the entire Chromium protocol stack or its flow-control windows.
 
 ## Controlled baseline → final comparison
 
@@ -121,4 +121,4 @@ See [tests/perf/README.md](../tests/perf/README.md) for build, A/B, worker-sweep
 
 Validation gates: clean patch application; macOS arm64 native build; Rust tests including wake direction, buffer ownership/reuse, queue backpressure, caller-buffer independence and shutdown races; Caddy HTTPS/QUIC success and trust/authentication negatives; Clippy with warnings denied; allocator-scribble stress; and the patched original CLI baseline tests. All these gates passed on the local host: eight Rust tests, real-server interop for both native profiles, allocator-scribble stress, and 52 upstream CLI cases (eight default-port cases skipped). [Validation receipt](performance/results/validation.json). Hosted CI has not been run.
 
-Limits: macOS arm64 only, local loopback, one pinned upstream version. Other platforms, real VPN/device routing and WAN congestion/loss are not validated by these measurements. Functional gaps outside this performance task remain unchanged (for example custom DNS/dialer hooks and general async-runtime adapters).
+Limits: macOS arm64 only, local loopback, one pinned upstream version. Other platforms, real VPN/device routing and WAN congestion/loss are not validated by these measurements. This report is a historical performance snapshot. Subsequent DNS/dialer hooks, runtime adapters and owned IO are documented in `functional-gaps.md` and `owned-io.md`; those changes were not re-benchmarked here.

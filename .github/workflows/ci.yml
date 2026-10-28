@@ -33,5 +33,9 @@ jobs:
         run: |
           cargo tree -p naive-rs --no-default-features -e normal > deps.txt
           ! grep -q tokio deps.txt
+          cargo tree -p naive-monoio -e normal > monoio-deps.txt
+          ! grep -q 'tokio v' monoio-deps.txt
+          cargo tree -p naive-compio -e normal > compio-deps.txt
+          ! grep -q 'tokio v' compio-deps.txt
       - name: Verify clean upstream submodule
         run: test -z "$(git -C vendor/naiveproxy status --porcelain)"

@@ -23,8 +23,13 @@ pub(crate) struct State {
     pub terminal: Option<Error>,
     pub eof: bool,
     pub read_pending: bool,
+    pub owned_read_pending: bool,
     pub read_data: Option<ReadChunk>,
     pub write_pending: bool,
+    pub owned_write_pending: bool,
+    pub write_shutdown_pending: bool,
+    pub write_shutdown: bool,
+    pub write_shutdown_error: Option<Error>,
     pub write_queued: Option<WriteBatch>,
     pub write_spares: [Option<Buffer>; 2],
     pub write_wait_flush: bool,
@@ -107,8 +112,24 @@ pub struct NaiveStream {
     pub(crate) shared: Arc<Shared>,
     pub(crate) id: u64,
     pub(crate) closed: bool,
+    pub(crate) owns_close: bool,
 }
 impl NaiveStream {
+    /// Splits the stream into one independent reader and writer for concurrent
+    /// owned IO. Dropping the last half aborts the stream; dropping only one
+    /// half does not synthesize an EOF or a FIN.
+    pub fn into_split(self) -> (crate::owned::ReadHalf, crate::owned::WriteHalf) {
+        crate::owned::split(self)
+    }
+    pub(crate) fn io_view(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            shared: self.shared.clone(),
+            id: self.id,
+            closed: false,
+            owns_close: false,
+        }
+    }
     pub fn id(&self) -> u64 {
         self.id
     }
@@ -170,6 +191,13 @@ impl NaiveStream {
             self.inner.cancel(self.id);
         }
     }
+    /// Drains accepted writes and then closes both directions. Unlike
+    /// `shutdown_write`, this is available for every supported transport.
+    pub async fn close_after_flush(&mut self) -> Result<(), Error> {
+        std::future::poll_fn(|cx| self.poll_close_stream(cx))
+            .await
+            .map_err(Into::into)
+    }
     /// Poll a bounded write of owned copies. Usable with any executor.
     pub fn poll_write_slices(
         &mut self,
@@ -179,6 +207,9 @@ impl NaiveStream {
         let mut state = lock(&self.shared.state);
         if let Some(error) = &state.terminal {
             return Poll::Ready(Err(error.io()));
+        }
+        if state.write_shutdown || state.write_shutdown_pending {
+            return Poll::Ready(Err(io::ErrorKind::BrokenPipe.into()));
         }
         let size = slices
             .iter()
@@ -192,6 +223,10 @@ impl NaiveStream {
         }
         if !state.connected {
             state.write_wait_flush = false;
+            state.write_waker = Some(cx.waker().clone());
+            return Poll::Pending;
+        }
+        if state.owned_write_pending {
             state.write_waker = Some(cx.waker().clone());
             return Poll::Pending;
         }
@@ -302,7 +337,9 @@ impl DeadlineHandle {
 
 impl Drop for NaiveStream {
     fn drop(&mut self) {
-        self.close();
+        if self.owns_close {
+            self.close();
+        }
     }
 }
 impl std::fmt::Debug for NaiveStream {
@@ -314,6 +351,45 @@ impl std::fmt::Debug for NaiveStream {
     }
 }
 impl NaiveStream {
+    /// Returns the next native-owned immutable chunk without copying payload.
+    /// `None` is EOF. Canceling only this future preserves the pending read and
+    /// any completed data for the next read. Hosts own retention/backpressure.
+    pub async fn read_chunk(&mut self) -> Result<Option<ReadChunk>, Error> {
+        std::future::poll_fn(|cx| self.poll_read_chunk(cx)).await
+    }
+    pub fn poll_read_chunk(
+        &mut self,
+        cx: &mut Context<'_>,
+    ) -> Poll<Result<Option<ReadChunk>, Error>> {
+        let mut state = lock(&self.shared.state);
+        if expired(state.read_deadline) && state.terminal.is_none() && !state.eof {
+            return Poll::Ready(Err(Error::native(-7)));
+        }
+        if let Some(chunk) = state.read_data.take() {
+            return Poll::Ready(Ok(Some(chunk)));
+        }
+        if let Some(error) = &state.terminal {
+            return Poll::Ready(Err(error.clone()));
+        }
+        if state.eof {
+            return Poll::Ready(Ok(None));
+        }
+        state.read_waker = Some(cx.waker().clone());
+        if !state.connected || state.owned_read_pending {
+            return Poll::Pending;
+        }
+        if !state.read_pending {
+            state.read_pending = true;
+            if let Err(error) = self.inner.submit(|ptr| unsafe {
+                naive_sys::naive_engine_read(ptr, self.id, MAX_IO);
+            }) {
+                state.read_pending = false;
+                state.terminal = Some(error.clone());
+                return Poll::Ready(Err(error));
+            }
+        }
+        Poll::Pending
+    }
     /// Poll a read into a slice without requiring an IO-trait adapter.
     pub fn poll_read_slice(
         &mut self,
@@ -324,7 +400,7 @@ impl NaiveStream {
             buffer[..bytes.len()].copy_from_slice(bytes)
         })
     }
-    fn poll_read_with(
+    pub(crate) fn poll_read_with(
         &mut self,
         cx: &mut Context<'_>,
         capacity: usize,
@@ -356,6 +432,9 @@ impl NaiveStream {
         if !state.connected {
             return Poll::Pending;
         }
+        if state.owned_read_pending {
+            return Poll::Pending;
+        }
         if !state.read_pending {
             state.read_pending = true;
             let capacity = capacity.clamp(MIN_BUFFER, MAX_IO).next_power_of_two();
@@ -373,6 +452,48 @@ impl NaiveStream {
     }
 }
 impl NaiveStream {
+    /// Ends only this stream's write direction after draining accepted writes.
+    /// H2/H3 proxy streams support this; other negotiated transports may return
+    /// Unsupported without closing the read direction. `close()` aborts both.
+    pub async fn shutdown_write(&mut self) -> Result<(), Error> {
+        std::future::poll_fn(|cx| self.poll_shutdown_write(cx))
+            .await
+            .map_err(Into::into)
+    }
+    pub fn poll_shutdown_write(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        {
+            let mut state = lock(&self.shared.state);
+            if let Some(error) = &state.terminal {
+                return Poll::Ready(Err(error.io()));
+            }
+            if state.write_shutdown {
+                return Poll::Ready(Ok(()));
+            }
+            if let Some(error) = &state.write_shutdown_error {
+                return Poll::Ready(Err(error.io()));
+            }
+            if state.write_shutdown_pending {
+                state.write_waker = Some(cx.waker().clone());
+                return Poll::Pending;
+            }
+        }
+        std::task::ready!(self.poll_flush_pending(cx))?;
+        let mut state = lock(&self.shared.state);
+        if let Some(error) = &state.terminal {
+            return Poll::Ready(Err(error.io()));
+        }
+        state.write_shutdown_pending = true;
+        state.write_waker = Some(cx.waker().clone());
+        if let Err(error) = self
+            .inner
+            .submit(|ptr| unsafe { naive_sys::naive_engine_shutdown_write(ptr, self.id) })
+        {
+            state.write_shutdown_pending = false;
+            state.write_shutdown_error = Some(error.clone());
+            return Poll::Ready(Err(error.io()));
+        }
+        Poll::Pending
+    }
     pub fn poll_flush_pending(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         let mut state = lock(&self.shared.state);
         if let Some(error) = &state.terminal {
@@ -386,7 +507,7 @@ impl NaiveStream {
             state.write_waker = Some(cx.waker().clone());
             return Poll::Pending;
         }
-        if !state.write_pending {
+        if !state.write_pending && !state.owned_write_pending {
             debug_assert!(state.write_queued.is_none());
             return Poll::Ready(Ok(()));
         }
@@ -442,7 +563,7 @@ impl tokio::io::AsyncWrite for NaiveStream {
         self.poll_flush_pending(cx)
     }
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_close_stream(cx)
+        self.poll_shutdown_write(cx)
     }
 }
 #[cfg(feature = "futures-io")]
@@ -475,7 +596,7 @@ impl futures_io::AsyncWrite for NaiveStream {
         self.poll_flush_pending(cx)
     }
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        self.poll_close_stream(cx)
+        self.poll_shutdown_write(cx)
     }
 }
 

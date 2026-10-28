@@ -17,6 +17,7 @@ tokio = { workspace = true, optional = true }
 futures-channel = "0.3"
 futures-io = { version = "0.3", optional = true }
 event-listener = "5"
+bytes = { version = "1", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "process", "sync", "time"] }
@@ -25,7 +26,8 @@ futures-executor = "0.3"
 futures-util = { version = "0.3", features = ["io"] }
 
 [features]
-default = ["tokio"]
+default = []
+bytes = ["dep:bytes"]
 tokio = ["dep:tokio"]
 futures-io = ["dep:futures-io"]
 # Enables benchmark access to performance controls added by the optimized bridge.

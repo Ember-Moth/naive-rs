@@ -112,9 +112,14 @@ fn futures_io_adapter_transfers_and_closes_without_tokio() {
         let mut reply = [0; 10];
         stream.read_exact(&mut reply).await.unwrap();
         assert_eq!(&reply, b"futures io");
-        futures_util::io::AsyncWriteExt::close(&mut stream)
-            .await
-            .unwrap();
+        assert_eq!(
+            futures_util::io::AsyncWriteExt::close(&mut stream)
+                .await
+                .unwrap_err()
+                .kind(),
+            std::io::ErrorKind::Unsupported
+        );
+        poll_fn(|cx| stream.poll_close_stream(cx)).await.unwrap();
         client.shutdown().await.unwrap();
     });
     server.join().unwrap();

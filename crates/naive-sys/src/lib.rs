@@ -11,6 +11,7 @@ pub struct Buffer {
 }
 pub type Callback =
     unsafe extern "C" fn(*mut c_void, u64, i32, i32, *mut Buffer, *mut u8, usize, usize);
+pub type OwnedCallback = unsafe extern "C" fn(*mut c_void, i32, usize);
 pub const CONNECTED: i32 = 1;
 pub const READ: i32 = 2;
 pub const WRITTEN: i32 = 3;
@@ -18,7 +19,8 @@ pub const CLOSED: i32 = 4;
 pub const DESTROYED: i32 = 5;
 pub const READ_DEADLINE: i32 = 6;
 pub const WRITE_DEADLINE: i32 = 7;
-pub const ABI_VERSION: u32 = 3;
+pub const WRITE_SHUTDOWN: i32 = 8;
+pub const ABI_VERSION: u32 = 4;
 
 #[derive(Default, Debug, Clone, Copy)]
 #[repr(C)]
@@ -56,6 +58,23 @@ unsafe extern "C" {
     pub fn naive_engine_read(engine: *mut Engine, id: u64, capacity: usize);
     pub fn naive_engine_write(engine: *mut Engine, id: u64, buffer: *mut Buffer, length: usize);
     pub fn naive_engine_close(engine: *mut Engine, id: u64);
+    pub fn naive_engine_shutdown_write(engine: *mut Engine, id: u64);
+    pub fn naive_engine_read_owned(
+        engine: *mut Engine,
+        id: u64,
+        data: *mut u8,
+        capacity: usize,
+        context: *mut c_void,
+        completed: OwnedCallback,
+    );
+    pub fn naive_engine_write_owned(
+        engine: *mut Engine,
+        id: u64,
+        data: *const u8,
+        length: usize,
+        context: *mut c_void,
+        completed: OwnedCallback,
+    );
 }
 
 #[repr(C)]
@@ -102,6 +121,7 @@ pub struct StreamInfo {
     pub bytes_read: u64,
     pub bytes_written: u64,
     pub pooled_socket_reused: u32,
+    pub write_shutdown_supported: u32,
     pub ech_accepted: u32,
     pub tls_version: u16,
     pub cipher_suite: u16,
@@ -115,6 +135,7 @@ impl Default for StreamInfo {
             bytes_read: 0,
             bytes_written: 0,
             pooled_socket_reused: 0,
+            write_shutdown_supported: 0,
             ech_accepted: 0,
             tls_version: 0,
             cipher_suite: 0,

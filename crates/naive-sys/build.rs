@@ -18,7 +18,7 @@ fn main() {
         Some(target.as_str()),
         "native target mismatch"
     );
-    assert_eq!(manifest["abi"].as_u64(), Some(3), "native ABI mismatch");
+    assert_eq!(manifest["abi"].as_u64(), Some(4), "native ABI mismatch");
     assert_eq!(
         manifest["wrapper_version"].as_str(),
         Some(env!("CARGO_PKG_VERSION")),

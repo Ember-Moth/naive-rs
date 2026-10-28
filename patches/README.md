@@ -57,3 +57,7 @@ base and `upstream.lock.json` together when upgrading.
     archive independent of source-tree linker scripts at the final Rust link.
     It also removes the Java-stack lookup from fatal logging; native stacks and
     Android logcat output remain available without initializing a JVM.
+
+15. **0015-connect-half-close.patch** adds opt-in H2/H3 write-direction FIN
+    while retaining reads. Unsupported sockets explicitly return an error;
+    upstream CLI callers that do not opt in retain their existing close policy.

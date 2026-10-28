@@ -1,5 +1,6 @@
 #!/bin/sh
-# Final Rust links on a non-Linux build host. Never executes the target binary.
+# Final Rust links using Chromium's matching Clang/LLD, including CREL support.
+# Never executes the target binary.
 set -eu
 : "${NAIVE_CLANG:?set NAIVE_CLANG to the pinned Chromium clang executable}"
 : "${NAIVE_LINUX_SYSROOT:?set NAIVE_LINUX_SYSROOT to the pinned target sysroot}"

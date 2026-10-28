@@ -99,6 +99,34 @@ struct naive_buffer : base::RefCountedThreadSafe<naive_buffer> {
 
 namespace {
 constexpr size_t kMaxIO = 64 * 1024;
+
+// Ownership belongs to the IOBuffer itself, not just the Stream or its task.
+// Lower layers may keep this object after Stream::Close has returned.
+class OwnedIOBuffer final : public net::IOBuffer {
+ public:
+  OwnedIOBuffer(uint8_t* data, size_t capacity, void* context,
+                naive_owned_callback completed)
+      : net::IOBuffer(base::span(data, capacity)), context_(context),
+        completed_(completed) {}
+  void Complete(int result, size_t transferred) {
+    if (finished_)
+      return;
+    finished_ = true;
+    result_ = result;
+    transferred_ = transferred;
+  }
+
+ private:
+  ~OwnedIOBuffer() override {
+    ClearSpan();
+    completed_(context_, result_, transferred_);
+  }
+  void* context_;
+  naive_owned_callback completed_;
+  int result_ = net::ERR_ABORTED;
+  size_t transferred_ = 0;
+  bool finished_ = false;
+};
 constexpr auto kAnnotation = net::DefineNetworkTrafficAnnotation("naive", "");
 
 // Chromium process globals and the IO runner intentionally live until process
@@ -334,6 +362,9 @@ class Stream {
   int GetInfo(naive_stream_info* output);
   void Read(size_t capacity);
   void Write(scoped_refptr<naive_buffer> buffer, size_t length);
+  void ReadOwned(scoped_refptr<OwnedIOBuffer> buffer);
+  void WriteOwned(scoped_refptr<OwnedIOBuffer> buffer);
+  void ShutdownWrite();
   void Close(int reason);
   const std::shared_ptr<Tunnel>& tunnel() const { return tunnel_; }
   base::TimeTicks last_activity() const { return last_activity_; }
@@ -342,6 +373,8 @@ class Stream {
   void Connected(int result);
   void CaptureInfo();
   void ReadCompleted(int result);
+  void ReadOwnedCompleted(int result);
+  void ShutdownWriteCompleted(int result);
   void WriteNext();
   void WriteCompleted(int result);
   void Emit(int event,
@@ -360,11 +393,14 @@ class Stream {
   scoped_refptr<naive_buffer> read_buffer_;
   bool read_pending_ = false;
   scoped_refptr<naive_buffer> write_payload_;
+  scoped_refptr<OwnedIOBuffer> owned_read_;
+  scoped_refptr<OwnedIOBuffer> owned_write_;
   scoped_refptr<net::DrainableIOBuffer> write_buffer_;
   int write_size_ = 0;
   base::TimeTicks last_activity_ = base::TimeTicks::Now();
   bool connect_reported_ = false;
   bool connected_ = false;
+  bool write_shutdown_ = false;
   naive_stream_info info_{};
   uint64_t bytes_read_ = 0;
   uint64_t bytes_written_ = 0;
@@ -543,6 +579,22 @@ class Engine {
     auto it = streams_.find(id);
     if (it != streams_.end())
       it->second->Write(std::move(buffer), length);
+  }
+  void OwnedIO(uint64_t id, bool read, scoped_refptr<OwnedIOBuffer> buffer) {
+    auto it = streams_.find(id);
+    if (closed_ || it == streams_.end()) {
+      buffer->Complete(net::ERR_SOCKET_NOT_CONNECTED, 0);
+      return;
+    }
+    if (read)
+      it->second->ReadOwned(std::move(buffer));
+    else
+      it->second->WriteOwned(std::move(buffer));
+  }
+  void ShutdownWrite(uint64_t id) {
+    auto it = streams_.find(id);
+    if (!closed_ && it != streams_.end())
+      it->second->ShutdownWrite();
   }
   void Close(uint64_t id, int reason) {
     if (closed_)
@@ -735,6 +787,7 @@ int Stream::GetInfo(naive_stream_info* output) {
 
 void Stream::CaptureInfo() {
   auto* output = &info_;
+  output->write_shutdown_supported = handle_.socket()->EnableHalfClose();
   output->pooled_socket_reused = handle_.is_reused();
   auto copy = [](auto& target, std::string_view text) {
     size_t count = std::min(text.size(), sizeof(target) - 1);
@@ -819,6 +872,32 @@ void Stream::Read(size_t capacity) {
   if (rv != net::ERR_IO_PENDING)
     ReadCompleted(rv);
 }
+void Stream::ReadOwned(scoped_refptr<OwnedIOBuffer> buffer) {
+  if (!socket_ || read_pending_) {
+    buffer->Complete(net::ERR_UNEXPECTED, 0);
+    return;
+  }
+  read_pending_ = true;
+  owned_read_ = std::move(buffer);
+  int rv = socket_->Read(owned_read_.get(), owned_read_->size(),
+                         base::BindOnce(&Stream::ReadOwnedCompleted,
+                                        weak_.GetWeakPtr()));
+  if (rv != net::ERR_IO_PENDING)
+    ReadOwnedCompleted(rv);
+}
+void Stream::ReadOwnedCompleted(int result) {
+  read_pending_ = false;
+  auto buffer = std::move(owned_read_);
+  if (result > 0) {
+    last_activity_ = base::TimeTicks::Now();
+    bytes_read_ += result;
+    engine_->RecordRead(result);
+  }
+  buffer->Complete(result < 0 ? result : net::OK,
+                   result > 0 ? static_cast<size_t>(result) : 0);
+  if (result < 0)
+    engine_->Close(id_, result);
+}
 void Stream::ReadCompleted(int result) {
   read_pending_ = false;
   if (result > 0) {
@@ -832,7 +911,7 @@ void Stream::ReadCompleted(int result) {
     engine_->Close(id_, result);
 }
 void Stream::Write(scoped_refptr<naive_buffer> buffer, size_t length) {
-  if (!socket_ || write_buffer_ || !buffer || !length ||
+  if (!socket_ || write_shutdown_ || write_buffer_ || !buffer || !length ||
       length > buffer->capacity || length > kMaxIO) {
     Emit(NAIVE_WRITTEN, net::ERR_INVALID_ARGUMENT, std::move(buffer));
     return;
@@ -842,6 +921,47 @@ void Stream::Write(scoped_refptr<naive_buffer> buffer, size_t length) {
   write_buffer_ = base::MakeRefCounted<net::DrainableIOBuffer>(
       write_payload_->io, write_size_);
   WriteNext();
+}
+void Stream::WriteOwned(scoped_refptr<OwnedIOBuffer> buffer) {
+  if (!socket_ || write_shutdown_ || write_buffer_) {
+    buffer->Complete(net::ERR_UNEXPECTED, 0);
+    return;
+  }
+  write_size_ = buffer->size();
+  owned_write_ = std::move(buffer);
+  write_buffer_ = base::MakeRefCounted<net::DrainableIOBuffer>(owned_write_,
+                                                             write_size_);
+  WriteNext();
+}
+void Stream::ShutdownWrite() {
+  if (!connected_ || !socket_) {
+    Emit(NAIVE_WRITE_SHUTDOWN, net::ERR_SOCKET_NOT_CONNECTED);
+    return;
+  }
+  if (!info_.write_shutdown_supported) {
+    Emit(NAIVE_WRITE_SHUTDOWN, net::ERR_NOT_IMPLEMENTED);
+    return;
+  }
+  if (write_buffer_) {
+    Emit(NAIVE_WRITE_SHUTDOWN, net::ERR_UNEXPECTED);
+    return;
+  }
+  if (write_shutdown_) {
+    Emit(NAIVE_WRITE_SHUTDOWN, net::OK);
+    return;
+  }
+  write_shutdown_ = true;
+  int result = handle_.socket()->ShutdownWrite(base::BindOnce(
+      &Stream::ShutdownWriteCompleted, weak_.GetWeakPtr()));
+  if (result != net::ERR_IO_PENDING)
+    ShutdownWriteCompleted(result);
+}
+void Stream::ShutdownWriteCompleted(int result) {
+  if (result == net::ERR_NOT_IMPLEMENTED)
+    write_shutdown_ = false;
+  Emit(NAIVE_WRITE_SHUTDOWN, result);
+  if (result < 0 && result != net::ERR_NOT_IMPLEMENTED)
+    engine_->Close(id_, result);
 }
 void Stream::WriteNext() {
   while (write_buffer_ && write_buffer_->BytesRemaining() > 0) {
@@ -863,13 +983,23 @@ void Stream::WriteNext() {
   // Release transport views before transferring the writable owner back to
   // Rust.
   write_buffer_.reset();
-  Emit(NAIVE_WRITTEN, write_size_, std::move(write_payload_), write_size_);
+  if (owned_write_) {
+    owned_write_->Complete(net::OK, write_size_);
+    owned_write_.reset();
+  } else {
+    Emit(NAIVE_WRITTEN, write_size_, std::move(write_payload_), write_size_);
+  }
 }
 void Stream::WriteCompleted(int result) {
   if (result <= 0) {
     int error = result < 0 ? result : net::ERR_CONNECTION_CLOSED;
+    if (owned_write_)
+      owned_write_->Complete(error, write_size_ - write_buffer_->BytesRemaining());
     write_buffer_.reset();
-    Emit(NAIVE_WRITTEN, error, std::move(write_payload_));
+    if (owned_write_)
+      owned_write_.reset();
+    else
+      Emit(NAIVE_WRITTEN, error, std::move(write_payload_));
     engine_->Close(id_, error);
     return;
   }
@@ -880,6 +1010,11 @@ void Stream::WriteCompleted(int result) {
   WriteNext();
 }
 void Stream::Close(int reason) {
+  if (owned_read_)
+    owned_read_->Complete(reason, 0);
+  if (owned_write_)
+    owned_write_->Complete(reason,
+        write_buffer_ ? write_size_ - write_buffer_->BytesRemaining() : 0);
   connect_timer_.Stop();
   read_deadline_.Stop();
   write_deadline_.Stop();
@@ -890,6 +1025,8 @@ void Stream::Close(int reason) {
   read_pending_ = false;
   write_buffer_.reset();
   write_payload_.reset();
+  owned_read_.reset();
+  owned_write_.reset();
   // Destroy retired preambles before the engine URLRequestContext goes away.
   tunnel_.reset();
   if (context_) {
@@ -908,7 +1045,7 @@ struct naive_engine {
 
 extern "C" {
 uint32_t naive_abi_version() {
-  return 3;
+  return 4;
 }
 const char* naive_version() {
   return version_info::GetVersionNumber().data();
@@ -1121,5 +1258,39 @@ void naive_engine_close(naive_engine* engine, uint64_t id) {
   engine->runner->PostTask(
       FROM_HERE,
       base::BindOnce(&Engine::Close, engine->state, id, net::ERR_ABORTED));
+}
+void naive_engine_shutdown_write(naive_engine* engine, uint64_t id) {
+  engine->runner->PostTask(FROM_HERE,
+      base::BindOnce(&Engine::ShutdownWrite, engine->state, id));
+}
+
+void naive_engine_read_owned(naive_engine* engine, uint64_t id, uint8_t* data,
+                             size_t capacity, void* context,
+                             naive_owned_callback completed) {
+  if (!completed)
+    return;  // A valid callback is a caller precondition.
+  if (!engine || !data || !capacity || capacity > kMaxIO) {
+    completed(context, net::ERR_INVALID_ARGUMENT, 0);
+    return;
+  }
+  auto buffer = base::MakeRefCounted<OwnedIOBuffer>(data, capacity, context,
+                                                  completed);
+  engine->runner->PostTask(FROM_HERE,
+      base::BindOnce(&Engine::OwnedIO, engine->state, id, true, std::move(buffer)));
+}
+void naive_engine_write_owned(naive_engine* engine, uint64_t id,
+                              const uint8_t* data, size_t length, void* context,
+                              naive_owned_callback completed) {
+  if (!completed)
+    return;
+  if (!engine || !data || !length || length > kMaxIO) {
+    completed(context, net::ERR_INVALID_ARGUMENT, 0);
+    return;
+  }
+  // Socket::Write observes this storage as immutable. It is never used for Read.
+  auto buffer = base::MakeRefCounted<OwnedIOBuffer>(const_cast<uint8_t*>(data),
+                                                  length, context, completed);
+  engine->runner->PostTask(FROM_HERE,
+      base::BindOnce(&Engine::OwnedIO, engine->state, id, false, std::move(buffer)));
 }
 }

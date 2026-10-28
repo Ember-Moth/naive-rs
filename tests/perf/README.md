@@ -8,7 +8,7 @@ cargo xtask build
 python3 tests/build_caddy.py
 mkdir -p target/perf
 go build -o target/perf/echo tests/perf/echo.go
-cargo build -p naive-rs --bench transport --release --features perf-tuning
+cargo build -p naive-rs --bench transport --release --features tokio,perf-tuning
 ```
 
 Cargo prints the benchmark executable under `target/release/deps/transport-*`.

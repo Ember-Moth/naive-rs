@@ -234,7 +234,7 @@ fn prepare(root: &Path, force_check: bool) -> Result<PathBuf> {
 fn description(src: &Path, out: &str, what: &str) -> Result<Vec<String>> {
     let text = output(command(
         src,
-        "./gn/out/gn",
+        &format!("./gn/out/gn{}", env::consts::EXE_SUFFIX),
         &["desc", out, "//naive_rs:link_probe", what, "--format=json"],
     ))?;
     let value: serde_json::Value = serde_json::from_str(&text)?;
@@ -334,10 +334,16 @@ fn run() -> Result<()> {
     }
     let exe = if cfg!(windows) { ".exe" } else { "" };
     let gn = format!("./gn/out/gn{exe}");
+    // Chromium's Windows archive ships the MSVC driver, not clang.exe.
+    let compiler = if cfg!(windows) {
+        "clang-cl.exe"
+    } else {
+        "clang"
+    };
     if !src.join(format!("gn/out/gn{exe}")).exists()
         || !src
             .join(format!(
-                "third_party/llvm-build/Release+Asserts/bin/clang{exe}"
+                "third_party/llvm-build/Release+Asserts/bin/{compiler}"
             ))
             .exists()
     {
@@ -384,7 +390,7 @@ fn run() -> Result<()> {
         Vec::new()
     };
     let manifest = serde_json::json!({
-        "abi": 3, "target": target, "fingerprint": build_fingerprint,
+        "abi": 4, "target": target, "fingerprint": build_fingerprint,
         "native_profile": native_profile, "gn_args": gn_args,
         "archive": platform.archive(), "platform": platform::details(&src, platform)?,
         "wrapper_version": env!("CARGO_PKG_VERSION"),

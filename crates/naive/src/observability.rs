@@ -41,6 +41,8 @@ pub struct ConnectionInfo {
     pub ech_accepted: Option<bool>,
     /// Socket-handle reuse, not a claim about multiplexed session reuse.
     pub pooled_socket_reused: bool,
+    /// True when this negotiated proxy stream supports an independent write FIN.
+    pub write_shutdown_supported: bool,
     pub bytes_read: u64,
     pub bytes_written: u64,
 }
@@ -64,6 +66,7 @@ impl From<naive_sys::StreamInfo> for ConnectionInfo {
             tls_version: (value.tls_version != 0).then_some(value.tls_version),
             cipher_suite: (value.cipher_suite != 0).then_some(value.cipher_suite),
             pooled_socket_reused: value.pooled_socket_reused != 0,
+            write_shutdown_supported: value.write_shutdown_supported != 0,
             ech_accepted: (value.tls_version != 0).then_some(value.ech_accepted != 0),
             bytes_read: value.bytes_read,
             bytes_written: value.bytes_written,

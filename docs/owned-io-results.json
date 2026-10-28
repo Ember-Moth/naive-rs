@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-28",
+  "abi": 4,
+  "base_commit": "f31fabe5c48d16a50ac2e61452c3b33f8ddac1ee",
+  "uncommitted_changes": true,
+  "native_source_fingerprint": "74c48067ff19d74d028b9b6fde8468358e70502abb86ccd87e0dbdf66ec0bec0",
+  "rust_sources_sha256": "356297e869631ac6dc1a41ed868110e9d0649744afccdc14e4bca2a9f98c6e91",
+  "core_targets": [
+    "aarch64-linux-android",
+    "aarch64-apple-ios-sim",
+    "aarch64-apple-ios",
+    "x86_64-apple-darwin",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-linux-android",
+    "armv7-linux-androideabi",
+    "x86_64-apple-ios",
+    "aarch64-apple-darwin"
+  ],
+  "adapter_compile_link_targets": [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-gnu"
+  ],
+  "adapters": {
+    "monoio": "0.2.4 with sync/legacy; optional iouring",
+    "compio_io": "0.10.1; runtime fixture 0.19.2"
+  },
+  "checks": {
+    "clippy_all_targets_all_features": "passed",
+    "workspace_tests": "compiled and linked, not executed",
+    "no_default_features": "compiled and linked",
+    "futures_io_only": "compiled and linked",
+    "runtime_fixtures": "compiled and linked, not executed",
+    "send_boundary_compile_fail_doctest": "passed",
+    "c11_header_and_layout": "passed",
+    "patch_queue": "15 patches apply",
+    "artifact_distribution": "deterministic packaging, install/replace, 12 rejection cases, separate Rust consumer link passed",
+    "core_and_adapter_normal_dependencies": "no Tokio",
+    "windows_build_tool": "xtask cross-checks passed for x86_64-pc-windows-msvc and aarch64-pc-windows-msvc; native Windows library remains unverified locally"
+  },
+  "linux_adapter_link_sysroots": {
+    "metadata_source": "https://snapshot.debian.org/mr/binary/libc6/2.31-13%2Bdeb11u5/binfiles",
+    "targets": {
+      "x86_64-unknown-linux-gnu": {
+        "url": "https://snapshot.debian.org/archive/debian/20250129T203412Z/pool/main/g/glibc/libc6_2.31-13+deb11u5_amd64.deb",
+        "sha256": "adf6994e4c000ff5b882db411a23925a5860a10146e27fa08fc08cb4d08e6d85",
+        "snapshot_sha1": "0009548af0b52191152f22e3a86d524949f6712c",
+        "version": "2.31-13+deb11u5",
+        "triple": "x86_64-linux-gnu",
+        "native_sysroot_sha256": "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
+      },
+      "aarch64-unknown-linux-gnu": {
+        "url": "https://snapshot.debian.org/archive/debian/20250129T203412Z/pool/main/g/glibc/libc6_2.31-13+deb11u5_arm64.deb",
+        "sha256": "6f32b8a6bf691b2fa63ba9a4eddba9a29f34c209fd7a64df86585d2b58c567f8",
+        "snapshot_sha1": "ed8c4c8435da2bee3c04f97305982f2e491bc644",
+        "version": "2.31-13+deb11u5",
+        "triple": "aarch64-linux-gnu",
+        "native_sysroot_sha256": "c7176a4c7aacbf46bda58a029f39f79a68008d3dee6518f154dcf5161a5486d8"
+      }
+    }
+  },
+  "runtime_execution": false,
+  "application_or_emulator_execution": false,
+  "windows_native_build": "unverified",
+  "sonar": "reference only; no changes",
+  "scope": "Local pre-commit compile, link and package validation",
+  "rust_toolchains": {
+    "workspace_checks": "1.99.1",
+    "cross_target_links": "1.97.1"
+  },
+  "publication_at_validation": "not committed or pushed in this task",
+  "ci_repairs": [
+    "Replace deprecated AtomicU64 fetch_update while retaining non-wrapping stream IDs",
+    "Initialize Android SDK and install pinned NDK before selecting its compiler",
+    "Use the actual Chromium Windows clang-cl.exe driver and explicit GN executable suffix",
+    "Link Linux targets with matching Chromium Clang/LLD and an independent unmodified glibc SDK"
+  ]
+}

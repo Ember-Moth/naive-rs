@@ -294,11 +294,21 @@ impl NaiveClient {
         }
         let hostname =
             CString::new(hostname).map_err(|_| Error::invalid("hostname contains NUL"))?;
-        let id = self
-            .inner
-            .next_id
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
-            .map_err(|_| Error::runtime("stream ID space exhausted".into()))?;
+        let mut id = self.inner.next_id.load(Ordering::Relaxed);
+        loop {
+            let next = id
+                .checked_add(1)
+                .ok_or_else(|| Error::runtime("stream ID space exhausted".into()))?;
+            match self.inner.next_id.compare_exchange_weak(
+                id,
+                next,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(current) => id = current,
+            }
+        }
         let shared = Arc::new(Shared {
             state: Mutex::new(State::new()),
             inner: Arc::downgrade(&self.inner),
@@ -358,6 +368,7 @@ impl NaiveClient {
             shared,
             id,
             closed: false,
+            owns_close: true,
         })
     }
     /// Cancels current streams and empties connection pools and DNS caches.
@@ -439,6 +450,21 @@ unsafe extern "C" fn on_event(
         }
         // SAFETY: the native stream keeps the context Arc until DESTROYED.
         let shared = unsafe { &*context.cast::<Shared>() };
+        if event == sys::WRITE_SHUTDOWN {
+            let mut state = lock(&shared.state);
+            state.write_shutdown_pending = false;
+            if result == 0 {
+                state.write_shutdown = true;
+            } else {
+                state.write_shutdown_error = Some(Error::native(result));
+            }
+            let write = state.write_waker.take();
+            drop(state);
+            if let Some(waker) = write {
+                waker.wake();
+            }
+            return;
+        }
         if result < 0 || event == sys::CLOSED {
             let error = if result < 0 {
                 Error::native(result)

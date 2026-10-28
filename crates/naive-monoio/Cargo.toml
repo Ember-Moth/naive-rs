@@ -1,0 +1,21 @@
+[package]
+name = "naive-monoio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Optional monoio adapter for naive-rs"
+
+[target.'cfg(unix)'.dependencies]
+naive-rs = { path = "../naive", version = "0.1.0", default-features = false }
+monoio = { version = "0.2.4", default-features = false, features = ["legacy", "sync"] }
+
+[features]
+default = []
+iouring = ["monoio/iouring"]
+bytes = ["naive-rs/bytes", "monoio/bytes"]
+
+[target.'cfg(unix)'.dev-dependencies]
+futures-util = "0.3"
+monoio = { version = "0.2.4", default-features = false, features = ["legacy", "sync", "macros"] }

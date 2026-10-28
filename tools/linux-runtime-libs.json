@@ -1,0 +1,21 @@
+{
+  "metadata_source": "https://snapshot.debian.org/mr/binary/libc6/2.31-13%2Bdeb11u5/binfiles",
+  "targets": {
+    "x86_64-unknown-linux-gnu": {
+      "url": "https://snapshot.debian.org/archive/debian/20250129T203412Z/pool/main/g/glibc/libc6_2.31-13+deb11u5_amd64.deb",
+      "sha256": "adf6994e4c000ff5b882db411a23925a5860a10146e27fa08fc08cb4d08e6d85",
+      "snapshot_sha1": "0009548af0b52191152f22e3a86d524949f6712c",
+      "version": "2.31-13+deb11u5",
+      "triple": "x86_64-linux-gnu",
+      "native_sysroot_sha256": "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
+    },
+    "aarch64-unknown-linux-gnu": {
+      "url": "https://snapshot.debian.org/archive/debian/20250129T203412Z/pool/main/g/glibc/libc6_2.31-13+deb11u5_arm64.deb",
+      "sha256": "6f32b8a6bf691b2fa63ba9a4eddba9a29f34c209fd7a64df86585d2b58c567f8",
+      "snapshot_sha1": "ed8c4c8435da2bee3c04f97305982f2e491bc644",
+      "version": "2.31-13+deb11u5",
+      "triple": "aarch64-linux-gnu",
+      "native_sysroot_sha256": "c7176a4c7aacbf46bda58a029f39f79a68008d3dee6518f154dcf5161a5486d8"
+    }
+  }
+}

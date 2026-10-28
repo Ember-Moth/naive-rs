@@ -93,3 +93,7 @@ Without a host callback, discovery uses Chromium's built-in DNS support where
 available. Hosts whose native DNS integration cannot retrieve HTTPS records
 must provide the callback or a static list. Discovery does not change the
 configured proxy IPs based on HTTPS-record address hints or target redirects.
+
+Owned IO, runtime adapters and directional-close contracts are documented in
+[owned IO](owned-io.md). Owned-operation cancellation and deadlines may abort the
+stream; the borrowed IO deadline behavior described above remains unchanged.
