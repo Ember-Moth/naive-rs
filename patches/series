@@ -1,0 +1,14 @@
+0001-extract-network-context.patch
+0002-library-build.patch
+0003-lazy-padding-buffers.patch
+0004-cache-compiled-root-data.patch
+0005-context-network-hooks.patch
+0006-cancel-abandoned-preamble.patch
+0007-ios-extra-roots.patch
+0008-ios-certificate-network-policy.patch
+0009-ios-user-agent-platform.patch
+0010-ios-uppercase-symbol.patch
+0011-android-macos-host.patch
+0012-proxy-connection-info.patch
+0013-network-context-options.patch
+0014-android-archive-link.patch

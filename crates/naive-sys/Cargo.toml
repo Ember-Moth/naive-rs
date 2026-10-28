@@ -1,0 +1,13 @@
+[package]
+name = "naive-sys"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+links = "naive_native"
+description = "C ABI bindings to the pinned NaiveProxy native library"
+
+[build-dependencies]
+serde_json.workspace = true
+sha2.workspace = true

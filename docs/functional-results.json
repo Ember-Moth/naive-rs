@@ -1,0 +1,246 @@
+{
+  "date": "2026-10-28",
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "native": {
+    "abi": 3,
+    "archive_sha256": "f190ae47211c941650cd431f81a4734d489922c407f8abb1c248f3f11940f5b3",
+    "fingerprint": "bbb9cb430afe010017fd25a3238daf0edefc14c86fabcb3c5ad342f0a259ac8e",
+    "frameworks": [
+      "CFNetwork.framework",
+      "CoreServices.framework",
+      "Foundation.framework",
+      "Network.framework",
+      "Security.framework",
+      "SystemConfiguration.framework",
+      "UniformTypeIdentifiers.framework",
+      "CoreFoundation.framework",
+      "CoreGraphics.framework",
+      "CoreText.framework",
+      "ApplicationServices.framework",
+      "AppKit.framework",
+      "IOKit.framework",
+      "OpenDirectory.framework",
+      "CryptoTokenKit.framework",
+      "LocalAuthentication.framework"
+    ],
+    "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"mac\"\ntarget_cpu = \"arm64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\n",
+    "libs": [
+      "resolv",
+      "bsm",
+      "pmenergy",
+      "pmsample"
+    ],
+    "native_profile": "portable",
+    "target": "aarch64-apple-darwin",
+    "upstream": {
+      "abi": 3,
+      "chromium": "154.0.8037.49",
+      "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+      "tag": "v154.0.8037.49-5",
+      "url": "https://github.com/klzgrad/naiveproxy.git"
+    }
+  },
+  "verification": [
+    {
+      "command": "cargo xtask build --jobs 8",
+      "result": "pass; archive and link_probe built"
+    },
+    {
+      "command": "cargo xtask check-patches",
+      "result": "pass; six patches apply to pinned upstream"
+    },
+    {
+      "command": "cargo test --workspace --all-features --locked",
+      "result": "pass; 23 tests, 3 fixture tests ignored"
+    },
+    {
+      "command": "cargo test -p naive-rs --no-default-features --locked",
+      "result": "pass; 2 no-runtime tests"
+    },
+    {
+      "command": "cargo test -p naive-rs --no-default-features --features futures-io --locked",
+      "result": "pass; 3 no-runtime tests"
+    },
+    {
+      "command": "cargo tree -p naive-rs --no-default-features -e normal",
+      "result": "no Tokio dependency"
+    },
+    {
+      "command": "python3 tests/interop.py",
+      "result": "pass; two tests, HTTPS and QUIC, custom DNS/control/TCP/UDP dialing/reset and certificate negatives"
+    },
+    {
+      "command": "python3 tests/aia_interop.py",
+      "result": "pass; proxy incomplete-chain rejection, explicit-issuer positive, no AIA fetch on HTTPS/QUIC"
+    },
+    {
+      "command": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+      "result": "pass"
+    },
+    {
+      "command": "MallocScribble=1 MallocGuardEdges=1 cargo test -p naive-rs --all-features --locked --test network --test performance_contracts",
+      "result": "pass; 13 tests"
+    }
+  ],
+  "performance": {
+    "performance-smoke.json": [
+      {
+        "protocol": "https",
+        "case": "bulk-1-64k",
+        "variant": "functional",
+        "runs": 3,
+        "median_mib_s": 856.713545172914,
+        "median_cpu_seconds": 0.45252400000000004,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "https",
+        "case": "bulk-1-64k",
+        "variant": "previous",
+        "runs": 3,
+        "median_mib_s": 833.9697157514887,
+        "median_cpu_seconds": 0.46807299999999996,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "https",
+        "case": "churn-100",
+        "variant": "functional",
+        "runs": 3,
+        "median_mib_s": 0.0,
+        "median_cpu_seconds": 0.024528,
+        "median_p50_us": 222.875
+      },
+      {
+        "protocol": "https",
+        "case": "churn-100",
+        "variant": "previous",
+        "runs": 3,
+        "median_mib_s": 0.0,
+        "median_cpu_seconds": 0.024794999999999998,
+        "median_p50_us": 224.958
+      },
+      {
+        "protocol": "https",
+        "case": "small-16-1k",
+        "variant": "functional",
+        "runs": 3,
+        "median_mib_s": 255.06124708012163,
+        "median_cpu_seconds": 0.40091499999999997,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "https",
+        "case": "small-16-1k",
+        "variant": "previous",
+        "runs": 3,
+        "median_mib_s": 286.68948816528325,
+        "median_cpu_seconds": 0.385054,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "quic",
+        "case": "bulk-1-64k",
+        "variant": "functional",
+        "runs": 3,
+        "median_mib_s": 175.75472192779588,
+        "median_cpu_seconds": 1.707822,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "quic",
+        "case": "bulk-1-64k",
+        "variant": "previous",
+        "runs": 3,
+        "median_mib_s": 183.44816251957064,
+        "median_cpu_seconds": 1.636457,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "quic",
+        "case": "churn-100",
+        "variant": "functional",
+        "runs": 3,
+        "median_mib_s": 0.0,
+        "median_cpu_seconds": 0.025018,
+        "median_p50_us": 227.25
+      },
+      {
+        "protocol": "quic",
+        "case": "churn-100",
+        "variant": "previous",
+        "runs": 3,
+        "median_mib_s": 0.0,
+        "median_cpu_seconds": 0.025276999999999997,
+        "median_p50_us": 229.541
+      },
+      {
+        "protocol": "quic",
+        "case": "small-16-1k",
+        "variant": "functional",
+        "runs": 3,
+        "median_mib_s": 114.31738959298855,
+        "median_cpu_seconds": 0.842104,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "quic",
+        "case": "small-16-1k",
+        "variant": "previous",
+        "runs": 3,
+        "median_mib_s": 110.4105504181584,
+        "median_cpu_seconds": 0.7975479999999999,
+        "median_p50_us": 0
+      }
+    ],
+    "performance-small.json": [
+      {
+        "protocol": "https",
+        "case": "small-16-1k",
+        "variant": "functional",
+        "runs": 5,
+        "median_mib_s": 258.9182350626113,
+        "median_cpu_seconds": 3.386798,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "https",
+        "case": "small-16-1k",
+        "variant": "previous",
+        "runs": 5,
+        "median_mib_s": 259.475846586422,
+        "median_cpu_seconds": 3.3255260000000004,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "quic",
+        "case": "small-16-1k",
+        "variant": "functional",
+        "runs": 5,
+        "median_mib_s": 97.5435969391886,
+        "median_cpu_seconds": 7.8072740000000005,
+        "median_p50_us": 0
+      },
+      {
+        "protocol": "quic",
+        "case": "small-16-1k",
+        "variant": "previous",
+        "runs": 5,
+        "median_mib_s": 99.11775359156215,
+        "median_cpu_seconds": 7.627441,
+        "median_p50_us": 0
+      }
+    ]
+  },
+  "performance_note": "Loopback preservation checks against the SHA-verified prior optimized binary. Strong common run-to-run drift; not a performance improvement claim. All measured bridge buffers released after shutdown.",
+  "remaining": [
+    "P1 platform support and platform validation",
+    "P1 native artifact packaging/download/release",
+    "P2 ECH",
+    "P2 advanced network parameters",
+    "P2 early connect and explicit handshake",
+    "P2 stream deadlines",
+    "P2 structured observability"
+  ]
+}

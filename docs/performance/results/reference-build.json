@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/SagerNet/cronet-go",
+  "commit": "0d28acc44093df24b2526dea3d6ffefd6b0a54f0",
+  "native_archive_sha256": "c9074b3c540cac11414a5d16a45c69689ab91921072e9b5a816a92dbdde1905b",
+  "go": "go version go1.27.3 darwin/arm64",
+  "caveat": "Reference has Chromium 150 and different native flags/protocol defaults; not a controlled language comparison."
+}

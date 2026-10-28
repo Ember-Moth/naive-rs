@@ -1,0 +1,65 @@
+diff --git a/src/net/BUILD.gn b/src/net/BUILD.gn
+--- a/src/net/BUILD.gn
++++ b/src/net/BUILD.gn
+@@ -2062,12 +2062,12 @@
+   deps = [ "//base" ]
+ }
+ 
+-executable("naive") {
++source_set("naive_core") {
+   sources = [
++    "tools/naive/naive_context.cc",
++    "tools/naive/naive_context.h",
+     "tools/naive/http_proxy_server_socket.cc",
+     "tools/naive/http_proxy_server_socket.h",
+-    "tools/naive/naive_command_line.cc",
+-    "tools/naive/naive_command_line.h",
+     "tools/naive/naive_config.cc",
+     "tools/naive/naive_config.h",
+     "tools/naive/naive_connection.cc",
+@@ -2078,7 +2078,6 @@
+     "tools/naive/naive_padding_socket.h",
+     "tools/naive/naive_protocol.cc",
+     "tools/naive/naive_protocol.h",
+-    "tools/naive/naive_proxy_bin.cc",
+     "tools/naive/naive_proxy_delegate.cc",
+     "tools/naive/naive_proxy_delegate.h",
+     "tools/naive/naive_proxy.cc",
+@@ -2093,7 +2092,7 @@
+     "tools/naive/preamble_getter.h",
+   ]
+ 
+-  deps = [
++  public_deps = [
+     ":net",
+     "//base",
+     "//build/win:default_exe_manifest",
+@@ -2103,6 +2102,15 @@
+   ]
+ 
+   if (is_apple) {
+-    deps += [ "//base/allocator:early_zone_registration_apple" ]
++    public_deps += [ "//base/allocator:early_zone_registration_apple" ]
+   }
+ }
++
++executable("naive") {
++  sources = [
++    "tools/naive/naive_proxy_bin.cc",
++    "tools/naive/naive_command_line.cc",
++    "tools/naive/naive_command_line.h",
++  ]
++  deps = [ ":naive_core" ]
++}
+diff --git a/src/BUILD.gn b/src/BUILD.gn
+--- a/src/BUILD.gn
++++ b/src/BUILD.gn
+@@ -53,6 +53,8 @@
+ 
+   deps = [
+     "//net",
++    "//naive_rs:naive_native",
++    "//naive_rs:link_probe",
+   ]
+ }
+ 

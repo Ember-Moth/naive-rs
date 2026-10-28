@@ -1,0 +1,112 @@
+name: Native artifacts
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {target: aarch64-apple-darwin, runner: macos-26}
+          - {target: x86_64-apple-darwin, runner: macos-15-intel}
+          - {target: x86_64-unknown-linux-gnu, runner: ubuntu-24.04}
+          - {target: aarch64-unknown-linux-gnu, runner: ubuntu-24.04}
+          - {target: aarch64-linux-android, runner: ubuntu-24.04}
+          - {target: x86_64-linux-android, runner: ubuntu-24.04}
+          - {target: armv7-linux-androideabi, runner: ubuntu-24.04}
+          - {target: aarch64-apple-ios, runner: macos-26}
+          - {target: aarch64-apple-ios-sim, runner: macos-26}
+          - {target: x86_64-apple-ios, runner: macos-15-intel}
+          - {target: x86_64-pc-windows-msvc, runner: windows-2025}
+          - {target: aarch64-pc-windows-msvc, runner: windows-2025}
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      TARGET: ${{ matrix.target }}
+      IPHONEOS_DEPLOYMENT_TARGET: '18.0'
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      DEPOT_TOOLS_WIN_TOOLCHAIN: '0'
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install Linux tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build curl unzip xz-utils binutils gpg pkg-config gcc-aarch64-linux-gnu
+      - name: Install macOS tools
+        if: runner.os == 'macOS'
+        run: brew list ninja || brew install ninja
+      - name: Install Windows tools
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: choco install ninja unzip -y --no-progress
+      - name: Select Android NDK
+        if: contains(matrix.target, 'android')
+        run: |
+          sdkmanager 'ndk;29.0.14206865'
+          echo "NAIVE_ANDROID_NDK=$ANDROID_HOME/ndk/29.0.14206865" >> "$GITHUB_ENV"
+          case "$TARGET" in
+            aarch64-linux-android) key=AARCH64_LINUX_ANDROID; tool=aarch64-linux-android24-clang ;;
+            x86_64-linux-android) key=X86_64_LINUX_ANDROID; tool=x86_64-linux-android24-clang ;;
+            armv7-linux-androideabi) key=ARMV7_LINUX_ANDROIDEABI; tool=armv7a-linux-androideabi24-clang ;;
+          esac
+          echo "CARGO_TARGET_${key}_LINKER=$ANDROID_HOME/ndk/29.0.14206865/toolchains/llvm/prebuilt/linux-x86_64/bin/$tool" >> "$GITHUB_ENV"
+      - name: Validate release version
+        if: github.ref_type == 'tag'
+        run: |
+          python3 - <<'PY'
+          import os, tomllib
+          version = tomllib.load(open('Cargo.toml', 'rb'))['workspace']['package']['version']
+          assert os.environ['GITHUB_REF_NAME'] == 'v' + version, 'tag must match Cargo version'
+          PY
+      - uses: actions/cache@v4
+        with:
+          path: target/native/toolchains
+          key: naive-toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('upstream.lock.json') }}
+      - run: cargo xtask check-patches
+      - run: cargo xtask toolchain --target "$TARGET"
+      - run: cargo xtask build --target "$TARGET" --jobs 2
+      - name: Check Rust linking for every target
+        run: cargo test -p naive-rs --target "$TARGET" --all-features --no-run --locked
+      - name: Package native SDK
+        run: cargo xtask package --target "$TARGET"
+      - name: Verify package install and consumer link
+        if: matrix.target == 'aarch64-apple-darwin' || matrix.target == 'x86_64-apple-darwin' || matrix.target == 'x86_64-unknown-linux-gnu' || matrix.target == 'x86_64-pc-windows-msvc'
+        run: python3 tests/artifact_distribution.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.target }}
+          path: target/dist/*
+          if-no-files-found: error
+          retention-days: 14
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: artifacts
+          merge-multiple: true
+      - name: Publish immutable versioned native archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --repo "$GITHUB_REPOSITORY" --verify-tag --title "$GITHUB_REF_NAME" --generate-notes

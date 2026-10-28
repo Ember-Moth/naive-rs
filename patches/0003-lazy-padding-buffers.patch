@@ -1,0 +1,65 @@
+diff --git a/src/net/tools/naive/naive_padding_socket.h b/src/net/tools/naive/naive_padding_socket.h
+--- a/src/net/tools/naive/naive_padding_socket.h
++++ b/src/net/tools/naive/naive_padding_socket.h
+@@ -91,7 +91,7 @@
+   IOBuffer* read_user_buf_ = nullptr;
+   int read_user_buf_len_ = 0;
+   CompletionOnceCallback read_callback_;
+-  scoped_refptr<IOBuffer> read_buf_;
++  scoped_refptr<IOBufferWithSize> read_buf_;
+ 
+   int write_user_payload_len_ = 0;
+   CompletionOnceCallback write_callback_;
+diff --git a/src/net/tools/naive/naive_padding_socket.cc b/src/net/tools/naive/naive_padding_socket.cc
+--- a/src/net/tools/naive/naive_padding_socket.cc
++++ b/src/net/tools/naive/naive_padding_socket.cc
+@@ -26,7 +26,6 @@
+     : transport_socket_(transport_socket),
+       padding_type_(padding_type),
+       direction_(direction),
+-      read_buf_(base::MakeRefCounted<IOBufferWithSize>(kMaxBufferSize)),
+       framer_(kFirstPaddings) {}
+ 
+ NaivePaddingSocket::~NaivePaddingSocket() {
+@@ -59,6 +58,8 @@
+ int NaivePaddingSocket::ReadNoPadding(IOBuffer* buf,
+                                       int buf_len,
+                                       CompletionOnceCallback callback) {
++  // Padding scratch is unnecessary after the initial framing phase.
++  read_buf_.reset();
+   int rv = transport_socket_->Read(
+       buf, buf_len,
+       base::BindOnce(&NaivePaddingSocket::OnReadNoPaddingComplete,
+@@ -84,6 +85,9 @@
+   // Truncates user requested buf len if it is too large for the padding
+   // buffer.
+   buf_len = std::min(buf_len, kMaxBufferSize);
++  if (!read_buf_ || read_buf_->size() < buf_len) {
++    read_buf_ = base::MakeRefCounted<IOBufferWithSize>(buf_len);
++  }
+   read_user_buf_ = buf;
+   read_user_buf_len_ = buf_len;
+ 
+@@ -191,7 +195,6 @@
+     const NetworkTrafficAnnotationTag& traffic_annotation) {
+   DCHECK(write_buf_ == nullptr);
+ 
+-  auto padded = base::MakeRefCounted<IOBufferWithSize>(kMaxBufferSize);
+   int padding_size;
+   if (direction_ == kServer) {
+     if (buf_len < 100) {
+@@ -203,9 +206,13 @@
+   } else {
+     padding_size = base::RandIntInclusive(0, framer_.max_padding_size());
+   }
++  const int buffer_size = std::min(
++      kMaxBufferSize,
++      std::min(buf_len, kMaxBufferSize) + framer_.frame_header_size() + padding_size);
++  auto padded = base::MakeRefCounted<IOBufferWithSize>(buffer_size);
+   int write_buf_len =
+       framer_.Write(buf->data(), buf_len, padding_size, padded->data(),
+-                    kMaxBufferSize, write_user_payload_len_);
++                    buffer_size, write_user_payload_len_);
+   // Using DrainableIOBuffer here because we do not want to
+   // repeatedly encode the padding frames when short writes happen.
+   write_buf_ =

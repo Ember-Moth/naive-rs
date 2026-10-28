@@ -1,0 +1,468 @@
+diff --git a/src/net/tools/naive/naive_proxy_bin.cc b/src/net/tools/naive/naive_proxy_bin.cc
+--- a/src/net/tools/naive/naive_proxy_bin.cc
++++ b/src/net/tools/naive/naive_proxy_bin.cc
+@@ -69,6 +69,7 @@
+ #include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
+ #include "net/tools/naive/naive_command_line.h"
+ #include "net/tools/naive/naive_config.h"
++#include "net/tools/naive/naive_context.h"
+ #include "net/tools/naive/naive_protocol.h"
+ #include "net/tools/naive/naive_proxy.h"
+ #include "net/tools/naive/naive_proxy_delegate.h"
+@@ -162,171 +163,6 @@
+ };
+ }  // namespace
+ 
+-namespace {
+-std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(NetLog* net_log) {
+-  URLRequestContextBuilder builder;
+-
+-  builder.DisableHttpCache();
+-  builder.set_net_log(net_log);
+-
+-  ProxyConfig proxy_config;
+-  auto proxy_service =
+-      ConfiguredProxyResolutionService::CreateWithoutProxyResolver(
+-          std::make_unique<ProxyConfigServiceFixed>(
+-              ProxyConfigWithAnnotation(proxy_config, kTrafficAnnotation)),
+-          nullptr, net_log);
+-  proxy_service->ForceReloadProxyConfig();
+-  builder.set_proxy_resolution_service(std::move(proxy_service));
+-
+-  return builder.Build();
+-}
+-
+-// Builds a URLRequestContext assuming there's only a single loop.
+-std::unique_ptr<URLRequestContext> BuildURLRequestContext(
+-    const NaiveConfig& config,
+-    scoped_refptr<CertNetFetcherURLRequest> cert_net_fetcher,
+-    NetLog* net_log,
+-    int proxy_chain_index = 0) {
+-  URLRequestContextBuilder builder;
+-
+-  builder.DisableHttpCache();
+-
+-  // Overrides HTTP/2 initial window size default values to accommodate
+-  // high BDP links.
+-  // See net/http/http_network_session.cc for the default values.
+-  // Alternative implementations than fixed large windows:
+-  // (1) Dynamic window scaling, see
+-  //     https://github.com/dotnet/runtime/pull/54755
+-  //     and https://grpc.io/blog/grpc-go-perf-improvements/
+-  //     This approach estimates throughput and RTT in userspace
+-  //     and incurs big architectural complexity.
+-  // (2) Obtains TCP receive windows from Linux-specific TCP_INFO.
+-  //     This approach is not portable.
+-  // Security impact:
+-  // This use of non-default settings creates a fingerprinting feature
+-  // that is visible to proxy servers, though this is only exploitable
+-  // if the proxy servers can be MITM'd.
+-
+-  constexpr int kMaxBandwidthMBps = 125;
+-  constexpr double kTypicalRttSecond = 0.256;
+-  constexpr int kMaxBdpMB = kMaxBandwidthMBps * kTypicalRttSecond;
+-
+-  // The windows size should be twice the BDP because WINDOW_UPDATEs
+-  // are sent after half the window is unacknowledged.
+-  constexpr int kTypicalWindow = kMaxBdpMB * 2 * 1024 * 1024;
+-  HttpNetworkSessionParams http_network_session_params;
+-  http_network_session_params.spdy_session_max_recv_window_size =
+-      kTypicalWindow * 2;
+-  http_network_session_params
+-      .http2_settings[spdy::SETTINGS_INITIAL_WINDOW_SIZE] = kTypicalWindow;
+-  builder.set_http_network_session_params(http_network_session_params);
+-
+-  builder.set_net_log(net_log);
+-
+-  ProxyConfig proxy_config;
+-  proxy_config.proxy_rules().type =
+-      net::ProxyConfig::ProxyRules::Type::PROXY_LIST;
+-  if (config.proxy_chains.empty()) {
+-    proxy_config.proxy_rules().single_proxies.SetSingleProxyChain(
+-        ProxyChain::Direct());
+-  } else {
+-    proxy_config.proxy_rules().single_proxies.SetSingleProxyChain(
+-        config.proxy_chains.at(proxy_chain_index));
+-  }
+-  LOG(INFO) << "Proxying via "
+-            << proxy_config.proxy_rules().single_proxies.ToDebugString();
+-  auto proxy_service =
+-      ConfiguredProxyResolutionService::CreateWithoutProxyResolver(
+-          std::make_unique<ProxyConfigServiceFixed>(
+-              ProxyConfigWithAnnotation(proxy_config, kTrafficAnnotation)),
+-          nullptr, net_log);
+-  proxy_service->ForceReloadProxyConfig();
+-  builder.set_proxy_resolution_service(std::move(proxy_service));
+-
+-  if (!config.host_resolver_rules.empty()) {
+-    builder.set_host_mapping_rules(config.host_resolver_rules);
+-  }
+-
+-  builder.SetCertVerifier(
+-      CertVerifier::CreateDefault(std::move(cert_net_fetcher)));
+-
+-  builder.set_proxy_delegate(std::make_unique<NaiveProxyDelegate>(
+-      config.extra_headers,
+-      std::vector<PaddingType>{PaddingType::kVariant1, PaddingType::kNone}));
+-
+-  struct MySSLConfigService : public SSLConfigService {
+-    SSLContextConfig config;
+-
+-    explicit MySSLConfigService(bool no_post_quantum) {
+-#if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+-      // Copied from chrome/browser/ssl/ssl_config_service_manager.cc
+-      if (base::FeatureList::IsEnabled(net::features::kTLSTrustAnchorIDs)) {
+-        std::vector<std::vector<uint8_t>> trust_anchor_ids;
+-        if (base::FeatureList::IsEnabled(
+-                net::features::kNonMtcTrustAnchorIDs)) {
+-          base::Extend(trust_anchor_ids,
+-                       net::TrustStoreChrome::
+-                           GetTrustAnchorIDsFromCompiledInRootStore());
+-        }
+-        if (base::FeatureList::IsEnabled(net::features::kVerifyMTCs)) {
+-          base::Extend(trust_anchor_ids,
+-                       net::TrustStoreChrome::
+-                           GetTrustedMtcCaIDsFromCompiledInRootStore());
+-        }
+-        config.trust_anchor_ids =
+-            net::x509_util::EncodeTlsRequestedTrustAnchorIDList(
+-                std::move(trust_anchor_ids));
+-      }
+-#endif
+-      if (no_post_quantum) {
+-        std::erase_if(config.supported_named_groups,
+-                      [](const SSLNamedGroupInfo& g) {
+-                        return g.group_id == SSL_GROUP_X25519_MLKEM768 ||
+-                               g.group_id == SSL_GROUP_MLKEM1024;
+-                      });
+-      }
+-    }
+-
+-    SSLContextConfig GetSSLContextConfig() override { return config; }
+-
+-    EchMode GetEchMode(std::string_view) const override {
+-      return EchMode::kOpportunistic;
+-    }
+-
+-    bool CanShareConnectionWithClientCerts(std::string_view) const override {
+-      return false;
+-    }
+-  };
+-  builder.set_ssl_config_service(
+-      std::make_unique<MySSLConfigService>(config.no_post_quantum == true));
+-
+-  // The QUIC session pool copies these parameters during Build().
+-  auto quic_context = std::make_unique<QuicContext>();
+-  auto* quic = quic_context->params();
+-  quic->additional_proxy_packet_length = 0;
+-  if (!config.proxy_configs.empty()) {
+-    const auto& config2 = config.proxy_configs.at(proxy_chain_index);
+-    // Allow these hosts to use locally trusted certificate roots.
+-    quic->origins_to_force_quic_on = config2.origins_to_force_quic_on;
+-  }
+-  builder.set_quic_context(std::move(quic_context));
+-
+-  auto context = builder.Build();
+-
+-  if (!config.proxy_configs.empty()) {
+-    const auto& config2 = config.proxy_configs.at(proxy_chain_index);
+-    for (const auto& [k, v] : config2.auth_store) {
+-      auto* session = context->http_transaction_factory()->GetSession();
+-      auto* auth_cache = session->http_auth_cache();
+-      auth_cache->Add(k, HttpAuth::AUTH_PROXY,
+-                      /*realm=*/{}, HttpAuth::AUTH_SCHEME_BASIC, {},
+-                      /*challenge=*/"Basic", v, /*path=*/"/");
+-    }
+-  }
+-
+-  return context;
+-}
+-}  // namespace
+ }  // namespace net
+ 
+ int main(int argc, char* argv[]) {
+diff --git a/src/net/tools/naive/naive_context.cc b/src/net/tools/naive/naive_context.cc
+new file mode 100644
+--- /dev/null
++++ b/src/net/tools/naive/naive_context.cc
+@@ -0,0 +1,256 @@
++// Copyright 2018 The Chromium Authors. All rights reserved.
++// Copyright 2018 klzgrad <kizdiv@gmail.com>. All rights reserved.
++// Use of this source code is governed by a BSD-style license that can be
++// found in the LICENSE file.
++
++#include <algorithm>
++#include <cstdlib>
++#include <iostream>
++#include <limits>
++#include <memory>
++#include <optional>
++#include <string>
++
++#include "base/at_exit.h"
++#include "base/check.h"
++#include "base/command_line.h"
++#include "base/containers/extend.h"
++#include "base/feature_list.h"
++#include "base/files/file_path.h"
++#include "base/json/json_file_value_serializer.h"
++#include "base/json/json_writer.h"
++#include "base/logging.h"
++#include "base/process/memory.h"
++#include "base/rand_util.h"
++#include "base/run_loop.h"
++#include "base/strings/escape.h"
++#include "base/strings/string_number_conversions.h"
++#include "base/strings/stringprintf.h"
++#include "base/strings/utf_string_conversions.h"
++#include "base/system/sys_info.h"
++#include "base/task/single_thread_task_executor.h"
++#include "base/task/thread_pool/thread_pool_instance.h"
++#include "base/values.h"
++#include "build/build_config.h"
++#include "components/version_info/version_info.h"
++#include "net/base/auth.h"
++#include "net/base/features.h"
++#include "net/base/network_isolation_key.h"
++#include "net/base/url_util.h"
++#include "net/cert/cert_verifier.h"
++#include "net/cert/x509_util.h"
++#include "net/cert_net/cert_net_fetcher_url_request.h"
++#include "net/dns/host_resolver.h"
++#include "net/dns/mapped_host_resolver.h"
++#include "net/http/http_auth.h"
++#include "net/http/http_auth_cache.h"
++#include "net/http/http_network_session.h"
++#include "net/http/http_request_headers.h"
++#include "net/http/http_transaction_factory.h"
++#include "net/log/file_net_log_observer.h"
++#include "net/log/net_log.h"
++#include "net/log/net_log_capture_mode.h"
++#include "net/log/net_log_entry.h"
++#include "net/log/net_log_event_type.h"
++#include "net/log/net_log_source.h"
++#include "net/log/net_log_util.h"
++#include "net/proxy_resolution/configured_proxy_resolution_service.h"
++#include "net/proxy_resolution/proxy_config.h"
++#include "net/proxy_resolution/proxy_config_service_fixed.h"
++#include "net/proxy_resolution/proxy_config_with_annotation.h"
++#include "net/quic/quic_context.h"
++#include "net/socket/client_socket_pool.h"
++#include "net/socket/client_socket_pool_manager.h"
++#include "net/socket/ssl_client_socket.h"
++#include "net/socket/tcp_server_socket.h"
++#include "net/socket/udp_server_socket.h"
++#include "net/ssl/ssl_config_service.h"
++#include "net/ssl/ssl_key_logger_impl.h"
++#include "net/third_party/quiche/src/quiche/quic/core/quic_versions.h"
++#include "net/tools/naive/naive_command_line.h"
++#include "net/tools/naive/naive_config.h"
++#include "net/tools/naive/naive_protocol.h"
++#include "net/tools/naive/naive_proxy.h"
++#include "net/tools/naive/naive_proxy_delegate.h"
++#include "net/tools/naive/redirect_resolver.h"
++#include "net/traffic_annotation/network_traffic_annotation.h"
++#include "net/url_request/url_request_context.h"
++#include "net/url_request/url_request_context_builder.h"
++#include "third_party/boringssl/src/include/openssl/ssl.h"
++#include "url/gurl.h"
++#include "url/scheme_host_port.h"
++#include "url/url_util.h"
++
++#include "net/tools/naive/naive_context.h"
++
++namespace net {
++namespace {
++constexpr NetworkTrafficAnnotationTag kTrafficAnnotation =
++    DefineNetworkTrafficAnnotation("naive", "");
++}
++
++std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(NetLog* net_log) {
++  URLRequestContextBuilder builder;
++
++  builder.DisableHttpCache();
++  builder.set_net_log(net_log);
++
++  ProxyConfig proxy_config;
++  auto proxy_service =
++      ConfiguredProxyResolutionService::CreateWithoutProxyResolver(
++          std::make_unique<ProxyConfigServiceFixed>(
++              ProxyConfigWithAnnotation(proxy_config, kTrafficAnnotation)),
++          nullptr, net_log);
++  proxy_service->ForceReloadProxyConfig();
++  builder.set_proxy_resolution_service(std::move(proxy_service));
++
++  return builder.Build();
++}
++
++// Builds a URLRequestContext assuming there's only a single loop.
++std::unique_ptr<URLRequestContext> BuildURLRequestContext(
++    const NaiveConfig& config,
++    scoped_refptr<CertNetFetcherURLRequest> cert_net_fetcher,
++    NetLog* net_log,
++    int proxy_chain_index,
++    std::unique_ptr<CertVerifier> verifier) {
++  URLRequestContextBuilder builder;
++
++  builder.DisableHttpCache();
++
++  // Overrides HTTP/2 initial window size default values to accommodate
++  // high BDP links.
++  // See net/http/http_network_session.cc for the default values.
++  // Alternative implementations than fixed large windows:
++  // (1) Dynamic window scaling, see
++  //     https://github.com/dotnet/runtime/pull/54755
++  //     and https://grpc.io/blog/grpc-go-perf-improvements/
++  //     This approach estimates throughput and RTT in userspace
++  //     and incurs big architectural complexity.
++  // (2) Obtains TCP receive windows from Linux-specific TCP_INFO.
++  //     This approach is not portable.
++  // Security impact:
++  // This use of non-default settings creates a fingerprinting feature
++  // that is visible to proxy servers, though this is only exploitable
++  // if the proxy servers can be MITM'd.
++
++  constexpr int kMaxBandwidthMBps = 125;
++  constexpr double kTypicalRttSecond = 0.256;
++  constexpr int kMaxBdpMB = kMaxBandwidthMBps * kTypicalRttSecond;
++
++  // The windows size should be twice the BDP because WINDOW_UPDATEs
++  // are sent after half the window is unacknowledged.
++  constexpr int kTypicalWindow = kMaxBdpMB * 2 * 1024 * 1024;
++  HttpNetworkSessionParams http_network_session_params;
++  http_network_session_params.spdy_session_max_recv_window_size =
++      kTypicalWindow * 2;
++  http_network_session_params
++      .http2_settings[spdy::SETTINGS_INITIAL_WINDOW_SIZE] = kTypicalWindow;
++  builder.set_http_network_session_params(http_network_session_params);
++
++  builder.set_net_log(net_log);
++
++  ProxyConfig proxy_config;
++  proxy_config.proxy_rules().type =
++      net::ProxyConfig::ProxyRules::Type::PROXY_LIST;
++  if (config.proxy_chains.empty()) {
++    proxy_config.proxy_rules().single_proxies.SetSingleProxyChain(
++        ProxyChain::Direct());
++  } else {
++    proxy_config.proxy_rules().single_proxies.SetSingleProxyChain(
++        config.proxy_chains.at(proxy_chain_index));
++  }
++  LOG(INFO) << "Proxying via "
++            << proxy_config.proxy_rules().single_proxies.ToDebugString();
++  auto proxy_service =
++      ConfiguredProxyResolutionService::CreateWithoutProxyResolver(
++          std::make_unique<ProxyConfigServiceFixed>(
++              ProxyConfigWithAnnotation(proxy_config, kTrafficAnnotation)),
++          nullptr, net_log);
++  proxy_service->ForceReloadProxyConfig();
++  builder.set_proxy_resolution_service(std::move(proxy_service));
++
++  if (!config.host_resolver_rules.empty()) {
++    builder.set_host_mapping_rules(config.host_resolver_rules);
++  }
++
++  builder.SetCertVerifier(verifier ? std::move(verifier)
++      : CertVerifier::CreateDefault(std::move(cert_net_fetcher)));
++
++  builder.set_proxy_delegate(std::make_unique<NaiveProxyDelegate>(
++      config.extra_headers,
++      std::vector<PaddingType>{PaddingType::kVariant1, PaddingType::kNone}));
++
++  struct MySSLConfigService : public SSLConfigService {
++    SSLContextConfig config;
++
++    explicit MySSLConfigService(bool no_post_quantum) {
++#if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
++      // Copied from chrome/browser/ssl/ssl_config_service_manager.cc
++      if (base::FeatureList::IsEnabled(net::features::kTLSTrustAnchorIDs)) {
++        std::vector<std::vector<uint8_t>> trust_anchor_ids;
++        if (base::FeatureList::IsEnabled(
++                net::features::kNonMtcTrustAnchorIDs)) {
++          base::Extend(trust_anchor_ids,
++                       net::TrustStoreChrome::
++                           GetTrustAnchorIDsFromCompiledInRootStore());
++        }
++        if (base::FeatureList::IsEnabled(net::features::kVerifyMTCs)) {
++          base::Extend(trust_anchor_ids,
++                       net::TrustStoreChrome::
++                           GetTrustedMtcCaIDsFromCompiledInRootStore());
++        }
++        config.trust_anchor_ids =
++            net::x509_util::EncodeTlsRequestedTrustAnchorIDList(
++                std::move(trust_anchor_ids));
++      }
++#endif
++      if (no_post_quantum) {
++        std::erase_if(config.supported_named_groups,
++                      [](const SSLNamedGroupInfo& g) {
++                        return g.group_id == SSL_GROUP_X25519_MLKEM768 ||
++                               g.group_id == SSL_GROUP_MLKEM1024;
++                      });
++      }
++    }
++
++    SSLContextConfig GetSSLContextConfig() override { return config; }
++
++    EchMode GetEchMode(std::string_view) const override {
++      return EchMode::kOpportunistic;
++    }
++
++    bool CanShareConnectionWithClientCerts(std::string_view) const override {
++      return false;
++    }
++  };
++  builder.set_ssl_config_service(
++      std::make_unique<MySSLConfigService>(config.no_post_quantum == true));
++
++  // The QUIC session pool copies these parameters during Build().
++  auto quic_context = std::make_unique<QuicContext>();
++  auto* quic = quic_context->params();
++  quic->additional_proxy_packet_length = 0;
++  if (!config.proxy_configs.empty()) {
++    const auto& config2 = config.proxy_configs.at(proxy_chain_index);
++    // Allow these hosts to use locally trusted certificate roots.
++    quic->origins_to_force_quic_on = config2.origins_to_force_quic_on;
++  }
++  builder.set_quic_context(std::move(quic_context));
++
++  auto context = builder.Build();
++
++  if (!config.proxy_configs.empty()) {
++    const auto& config2 = config.proxy_configs.at(proxy_chain_index);
++    for (const auto& [k, v] : config2.auth_store) {
++      auto* session = context->http_transaction_factory()->GetSession();
++      auto* auth_cache = session->http_auth_cache();
++      auth_cache->Add(k, HttpAuth::AUTH_PROXY,
++                      /*realm=*/{}, HttpAuth::AUTH_SCHEME_BASIC, {},
++                      /*challenge=*/"Basic", v, /*path=*/"/");
++    }
++  }
++
++  return context;
++}
++}  // namespace net
+diff --git a/src/net/tools/naive/naive_context.h b/src/net/tools/naive/naive_context.h
+new file mode 100644
+--- /dev/null
++++ b/src/net/tools/naive/naive_context.h
+@@ -0,0 +1,19 @@
++// Copyright 2026 naive-rs contributors. BSD-3-Clause.
++#ifndef NET_TOOLS_NAIVE_NAIVE_CONTEXT_H_
++#define NET_TOOLS_NAIVE_NAIVE_CONTEXT_H_
++#include <memory>
++#include "base/memory/scoped_refptr.h"
++namespace net {
++struct NaiveConfig;
++class NetLog;
++class URLRequestContext;
++class CertNetFetcherURLRequest;
++class CertVerifier;
++std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(NetLog* net_log);
++std::unique_ptr<URLRequestContext> BuildURLRequestContext(
++    const NaiveConfig& config,
++    scoped_refptr<CertNetFetcherURLRequest> cert_net_fetcher,
++    NetLog* net_log, int proxy_chain_index = 0,
++    std::unique_ptr<CertVerifier> verifier = nullptr);
++}
++#endif

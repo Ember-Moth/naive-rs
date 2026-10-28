@@ -1,0 +1,37 @@
+{
+  "abi": 1,
+  "archive_sha256": "f521034af92f1fa2f46d18735cbb8267a4cf384f4d6b1dafd68f49d43405917c",
+  "fingerprint": "30aef077c2e1964a451ce985798f212b8143aa3b6028afdcf47b6504f84d40cc",
+  "frameworks": [
+    "CFNetwork.framework",
+    "CoreServices.framework",
+    "Foundation.framework",
+    "Network.framework",
+    "Security.framework",
+    "SystemConfiguration.framework",
+    "UniformTypeIdentifiers.framework",
+    "CoreFoundation.framework",
+    "CoreGraphics.framework",
+    "CoreText.framework",
+    "ApplicationServices.framework",
+    "AppKit.framework",
+    "IOKit.framework",
+    "OpenDirectory.framework",
+    "CryptoTokenKit.framework",
+    "LocalAuthentication.framework"
+  ],
+  "libs": [
+    "resolv",
+    "bsm",
+    "pmenergy",
+    "pmsample"
+  ],
+  "target": "aarch64-apple-darwin",
+  "upstream": {
+    "abi": 1,
+    "chromium": "154.0.8037.49",
+    "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+    "tag": "v154.0.8037.49-5",
+    "url": "https://github.com/klzgrad/naiveproxy.git"
+  }
+}

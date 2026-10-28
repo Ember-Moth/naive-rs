@@ -1,0 +1,12 @@
+static_library("naive_native") {
+  complete_static_lib = true
+  configs -= [ "//build/config/compiler:thin_archive" ]
+  sources = [ "bridge.cc", "network.cc", "network.h", "ech.cc", "ech.h", "include/naive.h", "include/naive_network.h" ]
+  deps = [ "//net:naive_core", "//build/config:shared_library_deps" ]
+}
+
+# GN computes transitive system library/framework requirements for the Rust linker.
+executable("link_probe") {
+  sources = [ "link_probe.cc" ]
+  deps = [ ":naive_native" ]
+}

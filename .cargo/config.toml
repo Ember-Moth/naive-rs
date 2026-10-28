@@ -1,0 +1,7 @@
+[alias]
+xtask = "run --package xtask --"
+
+# Chromium's Objective-C categories must be retained at the final Apple link.
+# App/Xcode consumers of a Rust staticlib must also use -ObjC themselves.
+[target.'cfg(target_vendor = "apple")']
+rustflags = ["-C", "link-arg=-Wl,-ObjC"]

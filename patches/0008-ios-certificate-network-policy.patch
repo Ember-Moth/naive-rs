@@ -1,0 +1,34 @@
+--- a/src/net/cert/cert_verify_proc_ios.cc
++++ b/src/net/cert/cert_verify_proc_ios.cc
+@@ -149,6 +149,7 @@
+                                 SecPolicyRef trust_policy,
+                                 CFDataRef ocsp_response_ref,
+                                 CFArrayRef sct_array_ref,
++                                bool allow_network_fetches,
+                                 ScopedCFTypeRef<SecTrustRef>* trust_ref,
+                                 ScopedCFTypeRef<CFArrayRef>* verified_chain,
+                                 bool* is_trusted,
+@@ -177,6 +178,13 @@
+     if (status)
+       return NetErrorFromOSStatus(status);
+   }
++
++  // Respect the same no-network contract as the builtin verifier. In
++  // particular, proxy certificate verification must not recursively fetch
++  // issuers or revocation data outside the caller's network policy.
++  status = SecTrustSetNetworkFetchAllowed(tmp_trust.get(), allow_network_fetches);
++  if (status)
++    return NetErrorFromOSStatus(status);
+ 
+   ScopedCFTypeRef<CFErrorRef> tmp_error;
+   bool tmp_is_trusted =
+@@ -319,7 +327,8 @@
+ 
+   int err = BuildAndEvaluateSecTrustRef(
+       cert_array.get(), trust_policy.get(), ocsp_response_ref.get(),
+-      sct_array_ref.get(), &trust_ref, &final_chain, &is_trusted, &trust_error);
++      sct_array_ref.get(), !(flags & VERIFY_DISABLE_NETWORK_FETCHES),
++      &trust_ref, &final_chain, &is_trusted, &trust_error);
+   if (err)
+     return err;
+ 

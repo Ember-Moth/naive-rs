@@ -1,0 +1,543 @@
+{
+  "date": "2026-10-28",
+  "validation_scope": "compilation and final linking only; no app or simulator execution",
+  "results": [
+    {
+      "target": "aarch64-apple-darwin",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target aarch64-apple-darwin --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "cc1ac4505833130820ff2a2096f5099e0e5831409a44e36ad41b2a44a6782d1e",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [
+          "-Wl,-ObjC"
+        ],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [
+          "CFNetwork.framework",
+          "CoreServices.framework",
+          "Foundation.framework",
+          "Network.framework",
+          "Security.framework",
+          "SystemConfiguration.framework",
+          "UniformTypeIdentifiers.framework",
+          "CoreFoundation.framework",
+          "CoreGraphics.framework",
+          "CoreText.framework",
+          "ApplicationServices.framework",
+          "AppKit.framework",
+          "IOKit.framework",
+          "OpenDirectory.framework",
+          "CryptoTokenKit.framework",
+          "LocalAuthentication.framework"
+        ],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"mac\"\ntarget_cpu = \"arm64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\n",
+        "libs": [
+          "resolv",
+          "bsm",
+          "pmenergy",
+          "pmsample"
+        ],
+        "native_profile": "portable",
+        "platform": {},
+        "target": "aarch64-apple-darwin",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "cc1ac4505833130820ff2a2096f5099e0e5831409a44e36ad41b2a44a6782d1e",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "Mach-O 64-bit executable arm64"
+    },
+    {
+      "target": "aarch64-apple-ios",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target aarch64-apple-ios --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "0079b945eb216c1e71bf99592939db980b778b9cd4cddc87d0be537011393ae2",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [
+          "-Wl,-ObjC"
+        ],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [
+          "CFNetwork.framework",
+          "Network.framework",
+          "MobileCoreServices.framework",
+          "Security.framework",
+          "SystemConfiguration.framework",
+          "UniformTypeIdentifiers.framework",
+          "CoreTelephony.framework",
+          "CoreFoundation.framework",
+          "CoreGraphics.framework",
+          "CoreText.framework",
+          "Foundation.framework",
+          "UIKit.framework",
+          "CryptoTokenKit.framework",
+          "LocalAuthentication.framework"
+        ],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"ios\"\ntarget_cpu = \"arm64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\ntarget_environment = \"device\"\nios_enable_code_signing = false\nios_is_app_extension = true\nuse_blink = false\nchrome_root_store_optional = true\n",
+        "libs": [
+          "resolv"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "app_extension_safe": true,
+          "environment": "device",
+          "ios_minimum": "18.0",
+          "sdk": "27.1"
+        },
+        "target": "aarch64-apple-ios",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "0079b945eb216c1e71bf99592939db980b778b9cd4cddc87d0be537011393ae2",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "Mach-O 64-bit executable arm64"
+    },
+    {
+      "target": "aarch64-apple-ios-sim",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target aarch64-apple-ios-sim --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "79592db751971da5b92c345b26a8a2505ab7797c0fa5d20b51775e6001336269",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [
+          "-Wl,-ObjC"
+        ],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [
+          "CFNetwork.framework",
+          "Network.framework",
+          "MobileCoreServices.framework",
+          "Security.framework",
+          "SystemConfiguration.framework",
+          "UniformTypeIdentifiers.framework",
+          "CoreTelephony.framework",
+          "CoreFoundation.framework",
+          "CoreGraphics.framework",
+          "CoreText.framework",
+          "Foundation.framework",
+          "UIKit.framework",
+          "CryptoTokenKit.framework",
+          "LocalAuthentication.framework"
+        ],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"ios\"\ntarget_cpu = \"arm64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\ntarget_environment = \"simulator\"\nios_enable_code_signing = false\nios_is_app_extension = true\nuse_blink = false\nchrome_root_store_optional = true\n",
+        "libs": [
+          "resolv"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "app_extension_safe": true,
+          "environment": "simulator",
+          "ios_minimum": "18.0",
+          "sdk": "27.1"
+        },
+        "target": "aarch64-apple-ios-sim",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "79592db751971da5b92c345b26a8a2505ab7797c0fa5d20b51775e6001336269",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "Mach-O 64-bit executable arm64"
+    },
+    {
+      "target": "aarch64-linux-android",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=<NDK r29>/toolchains/llvm/prebuilt/darwin-x86_64/bin/aarch64-linux-android24-clang cargo test -p naive-rs --target aarch64-linux-android --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "714d5cc94f695a80e154fb4133a1f17de2d66323cd3e016bea6d9103e266186b",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"android\"\ntarget_cpu = \"arm64\"\nis_desktop_android = true\ndefault_min_sdk_version = 24\nis_high_end_android = true\nenable_android_secondary_abi = false\n",
+        "libs": [
+          "dl",
+          "m",
+          "android",
+          "log"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "android_api": 24,
+          "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n"
+        },
+        "target": "aarch64-linux-android",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "714d5cc94f695a80e154fb4133a1f17de2d66323cd3e016bea6d9103e266186b",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /system/bin/linker64, with debug_info, not stripped"
+    },
+    {
+      "target": "aarch64-unknown-linux-gnu",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target aarch64-unknown-linux-gnu --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "cccfe1369277678ab5083336cdd9e3e4f1b80ad04eead7b3c689a39229c2eed8",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"linux\"\ntarget_cpu = \"arm64\"\ntarget_sysroot = \"//out/sysroot-build/bullseye/bullseye_arm64_staging\"\n",
+        "libs": [
+          "dl",
+          "pthread",
+          "rt",
+          "resolv",
+          "atomic"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "sysroot": "debian-bullseye",
+          "sysroot_sha256": "c7176a4c7aacbf46bda58a029f39f79a68008d3dee6518f154dcf5161a5486d8"
+        },
+        "target": "aarch64-unknown-linux-gnu",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_binary_format": "ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, for GNU/Linux 3.7.0, with debug_info, not stripped"
+    },
+    {
+      "target": "armv7-linux-androideabi",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target armv7-linux-androideabi --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "fe8d18f2b845d7580ad8d4196b71e61070ad14c83b54e7d7225e09e7dc1f7ba0",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"android\"\ntarget_cpu = \"arm\"\nis_desktop_android = true\ndefault_min_sdk_version = 24\nis_high_end_android = true\nenable_android_secondary_abi = false\n",
+        "libs": [
+          "dl",
+          "m",
+          "android",
+          "log"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "android_api": 24,
+          "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n"
+        },
+        "target": "armv7-linux-androideabi",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "fe8d18f2b845d7580ad8d4196b71e61070ad14c83b54e7d7225e09e7dc1f7ba0",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "ELF 32-bit LSB pie executable, ARM, EABI5 version 1 (SYSV), dynamically linked, interpreter /system/bin/linker, with debug_info, not stripped"
+    },
+    {
+      "target": "x86_64-apple-darwin",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target x86_64-apple-darwin --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "9bb0f548f53f355082ce4ed4a5248e1dbe2332b06f3324e59b142e24ef30ca13",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [
+          "-Wl,-ObjC"
+        ],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [
+          "CFNetwork.framework",
+          "CoreServices.framework",
+          "Foundation.framework",
+          "Network.framework",
+          "Security.framework",
+          "SystemConfiguration.framework",
+          "UniformTypeIdentifiers.framework",
+          "CoreFoundation.framework",
+          "CoreGraphics.framework",
+          "CoreText.framework",
+          "ApplicationServices.framework",
+          "AppKit.framework",
+          "IOKit.framework",
+          "OpenDirectory.framework",
+          "CryptoTokenKit.framework",
+          "LocalAuthentication.framework"
+        ],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"mac\"\ntarget_cpu = \"x64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\n",
+        "libs": [
+          "resolv",
+          "bsm",
+          "pmenergy",
+          "pmsample"
+        ],
+        "native_profile": "portable",
+        "platform": {},
+        "target": "x86_64-apple-darwin",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "9bb0f548f53f355082ce4ed4a5248e1dbe2332b06f3324e59b142e24ef30ca13",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "Mach-O 64-bit executable x86_64"
+    },
+    {
+      "target": "x86_64-apple-ios",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target x86_64-apple-ios --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "d98711e23311a6826700ea4592dc83ca08ac05d8931905d69208e0f706829df3",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [
+          "-Wl,-ObjC"
+        ],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [
+          "CFNetwork.framework",
+          "Network.framework",
+          "MobileCoreServices.framework",
+          "Security.framework",
+          "SystemConfiguration.framework",
+          "UniformTypeIdentifiers.framework",
+          "CoreTelephony.framework",
+          "CoreFoundation.framework",
+          "CoreGraphics.framework",
+          "CoreText.framework",
+          "Foundation.framework",
+          "UIKit.framework",
+          "CryptoTokenKit.framework",
+          "LocalAuthentication.framework"
+        ],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"ios\"\ntarget_cpu = \"x64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\ntarget_environment = \"simulator\"\nios_enable_code_signing = false\nios_is_app_extension = true\nuse_blink = false\nchrome_root_store_optional = true\n",
+        "libs": [
+          "resolv"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "app_extension_safe": true,
+          "environment": "simulator",
+          "ios_minimum": "18.0",
+          "sdk": "27.1"
+        },
+        "target": "x86_64-apple-ios",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "d98711e23311a6826700ea4592dc83ca08ac05d8931905d69208e0f706829df3",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "Mach-O 64-bit executable x86_64"
+    },
+    {
+      "target": "x86_64-linux-android",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target x86_64-linux-android --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "85df2bc25184956764a17977f1406cb253cdb5fc1ff601ee4151b844048dcdaf",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"android\"\ntarget_cpu = \"x64\"\nis_desktop_android = true\ndefault_min_sdk_version = 24\nis_high_end_android = true\nenable_android_secondary_abi = false\n",
+        "libs": [
+          "dl",
+          "m",
+          "android",
+          "log"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "android_api": 24,
+          "ndk": "Pkg.Desc = Android NDK\nPkg.Revision = 29.0.14206865\nPkg.BaseRevision = 29.0.14206865\nPkg.ReleaseName = r29\n"
+        },
+        "target": "x86_64-linux-android",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_archive_sha256": "85df2bc25184956764a17977f1406cb253cdb5fc1ff601ee4151b844048dcdaf",
+      "link_validation": "previous successful final link; identical archive SHA-256, linker metadata and GN args after tooling-only update",
+      "linked_binary_format": "ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /system/bin/linker64, with debug_info, not stripped"
+    },
+    {
+      "target": "x86_64-unknown-linux-gnu",
+      "native_build": "passed",
+      "rust_final_link": "passed",
+      "native_package": "passed",
+      "command": "cargo test -p naive-rs --target x86_64-unknown-linux-gnu --all-features --no-run --locked",
+      "native_manifest": {
+        "abi": 3,
+        "archive": "libnaive_native.a",
+        "archive_sha256": "4b99f3e382de3eb378665932a42eab844f094e20d4d304b20bcdbb7b3ef6d285",
+        "build_host": "macos-aarch64",
+        "clang_revision": "llvmorg-24-init-3796-g20e97c4b-27",
+        "consumer_link_args": [],
+        "fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+        "frameworks": [],
+        "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"linux\"\ntarget_cpu = \"x64\"\ntarget_sysroot = \"//out/sysroot-build/bullseye/bullseye_amd64_staging\"\nuse_cfi_icall = false\n",
+        "libs": [
+          "dl",
+          "pthread",
+          "rt",
+          "resolv",
+          "atomic"
+        ],
+        "native_profile": "portable",
+        "platform": {
+          "sysroot": "debian-bullseye",
+          "sysroot_sha256": "52d61d4446ffebfaa3dda2cd02da4ab4876ff237853f46d273e7f9b666652e1d"
+        },
+        "target": "x86_64-unknown-linux-gnu",
+        "upstream": {
+          "abi": 3,
+          "chromium": "154.0.8037.49",
+          "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+          "tag": "v154.0.8037.49-5",
+          "url": "https://github.com/klzgrad/naiveproxy.git"
+        },
+        "wrapper_version": "0.1.0"
+      },
+      "linked_binary_format": "ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, with debug_info, not stripped"
+    }
+  ],
+  "environment_cleanup": {
+    "created_android_avd_and_image": "removed",
+    "created_ios_test_device": "removed",
+    "created_lima_vm_and_ubuntu_image_cache": "removed",
+    "preexisting_sdks_and_devices": "preserved"
+  },
+  "native_distribution": {
+    "target": "aarch64-apple-darwin",
+    "deterministic_package": "passed",
+    "install_and_replacement": "passed",
+    "rejection_cases": 12,
+    "separate_rust_consumer_link": "passed",
+    "command": "python3 tests/artifact_distribution.py",
+    "runtime_execution": false,
+    "source_fingerprint": "e822439725882b92439501fcd9db92ec6447e37fc87092a2ed38410e41cb734e",
+    "native_archive_sha256": "cc1ac4505833130820ff2a2096f5099e0e5831409a44e36ad41b2a44a6782d1e"
+  },
+  "source_checks": {
+    "patch_queue": 14,
+    "patch_application": "passed",
+    "rustfmt": "passed",
+    "clippy_all_targets_all_features": "passed",
+    "no_default_features_link": "passed",
+    "futures_io_only_link": "passed",
+    "workflow_static_validation": "passed",
+    "workspace_all_features_final_link": "passed",
+    "c11_public_headers": "passed",
+    "no_tokio_in_core_dependency_graph": "passed",
+    "windows_x86_64_build_tool_typecheck": "passed",
+    "clean_upstream_submodule": true
+  },
+  "not_yet_verified": [
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc"
+  ],
+  "windows_scope": "Build configuration provided; x86_64 MSVC Rust build-tool cross-check passed; native Windows compilation remains unverified by user-approved scope.",
+  "linux_toolchain": {
+    "host": "macos-aarch64",
+    "fresh_download_checksum_and_install": "passed",
+    "tested_installer_target": "aarch64-unknown-linux-gnu",
+    "target_programs_executed": false
+  },
+  "publication_state_at_validation": {
+    "origin": "git@github.com:Ember-Moth/naive-rs.git",
+    "committed": false,
+    "pushed": false,
+    "release_published": false,
+    "scope": "Local validation snapshot before the initial commit and remote CI run."
+  }
+}

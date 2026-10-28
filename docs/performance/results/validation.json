@@ -1,0 +1,62 @@
+{
+  "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "architecture": "arm64",
+  "native_abi": 2,
+  "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)",
+  "upstream": {
+    "url": "https://github.com/klzgrad/naiveproxy.git",
+    "tag": "v154.0.8037.49-5",
+    "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+    "chromium": "154.0.8037.49",
+    "abi": 2
+  },
+  "patches": [
+    "0001-extract-network-context.patch",
+    "0002-library-build.patch",
+    "0003-lazy-padding-buffers.patch",
+    "0004-cache-compiled-root-data.patch"
+  ],
+  "checks": {
+    "rust-tests": {
+      "command": "cargo test --workspace --all-features --locked",
+      "passed": true,
+      "log_sha256": "0b5026aa6645e54e32f79e28676eb33b1d70b6e544a625c87f62b06e5c95032d"
+    },
+    "clippy": {
+      "command": "cargo clippy --workspace --all-targets --all-features --locked -- -D warnings",
+      "passed": true,
+      "log_sha256": "e6f3acca6840134fd0a3ab32ecc8fc7940464c223a9f5dfc6af41adbe1b48c60"
+    },
+    "interop-portable": {
+      "command": "python3 tests/interop.py",
+      "passed": true,
+      "log_sha256": "fdc317eebf350aeb2df3c7369b762718aeffeb241d54477c50793421e7895e0b"
+    },
+    "interop-pgo": {
+      "command": "NAIVE_NATIVE_DIR=target/native/lib/aarch64-apple-darwin/pgo python3 tests/interop.py",
+      "passed": true,
+      "log_sha256": "2351b63eda3abdb6fa881930e2384fdd4b79a2beec12bd7e5484cbd2755f2a04"
+    },
+    "allocator-stress": {
+      "command": "MallocScribble=1 MallocGuardEdges=1 cargo test -p naive-rs --test performance_contracts --all-features --locked",
+      "passed": true,
+      "log_sha256": "dff5ea9551c7b707d5d7b04cdf509dce0a88f88f42305e7f21cb579afc963375"
+    },
+    "cli-regression": {
+      "command": "build patched naive; tests/basic.py with https and http, --skip-default-port-tests",
+      "passed": true,
+      "log_sha256": "fd0849438362bbaa93df5eeaf4510ec462d1a8d10d2cf53764cba7e7a9fac21d"
+    },
+    "patch-queue": {
+      "command": "cargo xtask check-patches",
+      "passed": true,
+      "log_sha256": "0efcbddcc3660b9c8d15d3d96c9ac130bc45e7ed290fc8dc3b7498361a31813a"
+    }
+  },
+  "rust_test_count": 8,
+  "interop_test_count_per_profile": 1,
+  "cli_cases_passed": 52,
+  "cli_default_port_cases_skipped": 8,
+  "hosted_ci_run": false,
+  "other_platforms_validated": false
+}

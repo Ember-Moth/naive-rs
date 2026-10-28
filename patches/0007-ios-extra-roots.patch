@@ -1,0 +1,30 @@
+--- a/src/net/cert/cert_verify_proc.cc
++++ b/src/net/cert/cert_verify_proc.cc
+@@ -838,7 +838,7 @@
+ #if BUILDFLAG(CHROME_ROOT_STORE_OPTIONAL)
+   // Defaults to using Chrome Root Store, though we have to keep this option in
+   // here to allow WebView to turn this option off.
+-  use_chrome_root_store = true;
++  use_chrome_root_store = !BUILDFLAG(IS_IOS);
+ #endif
+ }
+ 
+--- a/src/net/cert/internal/system_trust_store.cc
++++ b/src/net/cert/internal/system_trust_store.cc
+@@ -527,6 +527,16 @@
+       base::BindOnce(&InitializeTrustStoreForCRSOnWorkerThread));
+ }
+ 
++#elif BUILDFLAG(IS_IOS) && BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
++
++// The optional builtin verifier is used for explicit per-client roots on iOS.
++// The default verifier continues to use SecTrust. Do not mutate the keychain or
++// imply that this separate builtin path imports user keychain trust settings.
++std::unique_ptr<SystemTrustStore> CreateSslSystemTrustStoreChromeRoot(
++    std::unique_ptr<TrustStoreChrome> chrome_root) {
++  return CreateChromeOnlySystemTrustStore(std::move(chrome_root));
++}
++
+ #elif BUILDFLAG(IS_ANDROID)
+ 
+ #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)

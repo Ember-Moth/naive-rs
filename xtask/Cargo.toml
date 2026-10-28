@@ -1,0 +1,14 @@
+[package]
+name = "xtask"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+[dependencies]
+serde_json.workspace = true
+sha2.workspace = true
+flate2 = "1"
+tar = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+junction = "2.1"

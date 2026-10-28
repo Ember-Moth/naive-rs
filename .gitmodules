@@ -1,0 +1,3 @@
+[submodule "vendor/naiveproxy"]
+	path = vendor/naiveproxy
+	url = https://github.com/klzgrad/naiveproxy.git

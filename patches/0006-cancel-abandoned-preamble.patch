@@ -1,0 +1,30 @@
+--- a/src/net/tools/naive/preamble_getter.h
++++ b/src/net/tools/naive/preamble_getter.h
+@@ -47,6 +47,8 @@
+             size_t preamble_index = 0,
+             bool log_url = true);
+   void StartOne();
++  // Explicit cancellation for library owners abandoning a preamble.
++  void Cancel();
+ 
+  private:
+   enum State {
+--- a/src/net/tools/naive/preamble_getter.cc
++++ b/src/net/tools/naive/preamble_getter.cc
+@@ -102,6 +102,16 @@
+ 
+ PreambleGetter::~PreambleGetter() = default;
+ 
++void PreambleGetter::Cancel() {
++  weak_ptr_factory_.InvalidateWeakPtrs();
++  for (auto& request : requests_) {
++    request->upstream.reset();
++    request->server_socket_handle->ResetAndCloseSocket();
++    request->callback.Reset();
++  }
++  requests_.clear();
++}
++
+ void PreambleGetter::OnIOComplete(size_t preamble_index, int result) {
+   CHECK_LT(preamble_index, requests_.size());
+   Request& req = *requests_[preamble_index];

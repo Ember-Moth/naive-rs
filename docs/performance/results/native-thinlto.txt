@@ -1,0 +1,5 @@
+Pinned Chromium compiler: llvmorg-24-init-3796-g20e97c4b-27
+Host Apple clang: 21.0.0
+A minimal native -flto=thin static archive failed to link through the default rustc/cc toolchain.
+Linker error: Invalid summary version 14. Version should be in the range [1-12].
+The production native profile keeps ThinLTO disabled.

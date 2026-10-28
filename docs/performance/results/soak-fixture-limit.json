@@ -1,0 +1,11 @@
+{
+  "workload": "32 streams, reconnect every 127 messages, 4 KiB ping-pong, 4 clients/workers",
+  "first_failure_seconds": 27.796,
+  "first_failure_completed_messages": 64516,
+  "observed_client_error": "UnexpectedEof after successful CONNECT",
+  "observed_server_error": "dial tcp to loopback origin: connect: can't assign requested address",
+  "server_alive": true,
+  "origin_alive": true,
+  "fixture_change": "Reconnect each stream about once per second instead of per-message count; throughput and canceled-read pressure remain. Burst lifecycle regression is tested separately.",
+  "note": "Source-port/address exhaustion was confirmed by diagnostic logging around the unmodified upstream net.Dialer call. No host networking settings were changed."
+}

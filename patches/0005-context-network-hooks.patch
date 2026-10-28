@@ -1,0 +1,191 @@
+--- a/src/net/socket/tcp_client_socket.cc
++++ b/src/net/socket/tcp_client_socket.cc
+@@ -259,6 +259,13 @@
+     }
+   }
+ 
++  if (socket_control_callback_) {
++    int result = socket_control_callback_.Run(
++        socket_->SocketDescriptorForTesting(), endpoint);
++    if (result != OK)
++      return result == ERR_IO_PENDING ? ERR_INVALID_ARGUMENT : result;
++  }
++
+   if (before_connect_callback_) {
+     int result = before_connect_callback_.Run();
+     DCHECK_NE(ERR_IO_PENDING, result);
+--- a/src/net/socket/tcp_client_socket.h
++++ b/src/net/socket/tcp_client_socket.h
+@@ -95,6 +95,14 @@
+   bool SetKeepAlive(bool enable, int delay) override;
+   bool SetNoDelay(bool no_delay) override;
+ 
++  // Embedders may control each underlying socket before it connects. The
++  // callback borrows the descriptor; it must not close it or return IO_PENDING.
++  using SocketControlCallback =
++      base::RepeatingCallback<int(SocketDescriptor, const IPEndPoint&)>;
++  void SetSocketControlCallback(SocketControlCallback callback) {
++    socket_control_callback_ = std::move(callback);
++  }
++
+   // StreamSocket implementation.
+   void SetBeforeConnectCallback(
+       const BeforeConnectCallback& before_connect_callback) override;
+@@ -136,6 +144,7 @@
+   void OnSuspend() override;
+ 
+  private:
++  SocketControlCallback socket_control_callback_;
+   // State machine for connecting the socket.
+   enum ConnectState {
+     CONNECT_STATE_CONNECT,
+--- a/src/net/socket/udp_client_socket.cc
++++ b/src/net/socket/udp_client_socket.cc
+@@ -83,6 +83,11 @@
+   }
+   if (rv != OK)
+     return rv;
++  if (socket_control_callback_) {
++    rv = socket_control_callback_.Run(socket_.SocketDescriptorForTesting(), address);
++    if (rv != OK)
++      return rv == ERR_IO_PENDING ? ERR_INVALID_ARGUMENT : rv;
++  }
+   rv = socket_.Connect(address);
+   net_log_.AddEvent(NetLogEventType::SOCKET_CONNECT,
+                     [&] { return CreateNetLogUDPConnectParams(address, rv); });
+@@ -113,6 +118,11 @@
+   if (rv != OK)
+     return rv;
+   network_ = network;
++  if (socket_control_callback_) {
++    rv = socket_control_callback_.Run(socket_.SocketDescriptorForTesting(), address);
++    if (rv != OK)
++      return rv == ERR_IO_PENDING ? ERR_INVALID_ARGUMENT : rv;
++  }
+   rv = socket_.Connect(address);
+   net_log_.AddEvent(NetLogEventType::SOCKET_CONNECT,
+                     [&] { return CreateNetLogUDPConnectParams(address, rv); });
+@@ -159,6 +169,11 @@
+   if (rv != OK)
+     return rv;
+   network_ = network;
++  if (socket_control_callback_) {
++    rv = socket_control_callback_.Run(socket_.SocketDescriptorForTesting(), address);
++    if (rv != OK)
++      return rv == ERR_IO_PENDING ? ERR_INVALID_ARGUMENT : rv;
++  }
+   rv = socket_.Connect(address);
+   net_log_.AddEvent(NetLogEventType::SOCKET_CONNECT,
+                     [&] { return CreateNetLogUDPConnectParams(address, rv); });
+--- a/src/net/socket/udp_client_socket.h
++++ b/src/net/socket/udp_client_socket.h
+@@ -6,6 +6,7 @@
+ #define NET_SOCKET_UDP_CLIENT_SOCKET_H_
+ 
+ #include <stdint.h>
++#include "base/functional/callback.h"
+ 
+ #include "net/base/net_export.h"
+ #include "net/socket/datagram_client_socket.h"
+@@ -38,6 +39,14 @@
+   UDPClientSocket& operator=(const UDPClientSocket&) = delete;
+ 
+   ~UDPClientSocket() override;
++
++  // Embedders may control each underlying socket before it connects. The
++  // callback borrows the descriptor; it must not close it or return IO_PENDING.
++  using SocketControlCallback =
++      base::RepeatingCallback<int(SocketDescriptor, const IPEndPoint&)>;
++  void SetSocketControlCallback(SocketControlCallback callback) {
++    socket_control_callback_ = std::move(callback);
++  }
+ 
+   // DatagramClientSocket implementation.
+   int Connect(const IPEndPoint& address) override;
+@@ -112,6 +121,7 @@
+ #endif
+ 
+  private:
++  SocketControlCallback socket_control_callback_;
+   NetLogWithSource net_log_;
+   UDPSocket socket_;
+   bool adopted_opened_socket_ = false;
+--- a/src/net/socket/udp_socket_win.h
++++ b/src/net/socket/udp_socket_win.h
+@@ -188,6 +188,8 @@
+   // Connects the socket to connect with a certain |address|.
+   // Should be called after Open().
+   // Returns a net error code.
++  SOCKET SocketDescriptorForTesting() const { return socket_; }
++
+   int Connect(const IPEndPoint& address);
+ 
+   // Binds the address/port for this socket to |address|.  This is generally
+--- a/src/net/tools/naive/naive_context.cc
++++ b/src/net/tools/naive/naive_context.cc
+@@ -89,7 +89,8 @@
+     DefineNetworkTrafficAnnotation("naive", "");
+ }
+ 
+-std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(NetLog* net_log) {
++std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(
++    NetLog* net_log, const ConfigureContext& configure) {
+   URLRequestContextBuilder builder;
+ 
+   builder.DisableHttpCache();
+@@ -104,6 +105,8 @@
+   proxy_service->ForceReloadProxyConfig();
+   builder.set_proxy_resolution_service(std::move(proxy_service));
+ 
++  if (configure)
++    configure.Run(builder);
+   return builder.Build();
+ }
+ 
+@@ -113,7 +116,8 @@
+     scoped_refptr<CertNetFetcherURLRequest> cert_net_fetcher,
+     NetLog* net_log,
+     int proxy_chain_index,
+-    std::unique_ptr<CertVerifier> verifier) {
++    std::unique_ptr<CertVerifier> verifier,
++    const ConfigureContext& configure) {
+   URLRequestContextBuilder builder;
+ 
+   builder.DisableHttpCache();
+@@ -238,6 +242,8 @@
+   }
+   builder.set_quic_context(std::move(quic_context));
+ 
++  if (configure)
++    configure.Run(builder);
+   auto context = builder.Build();
+ 
+   if (!config.proxy_configs.empty()) {
+--- a/src/net/tools/naive/naive_context.h
++++ b/src/net/tools/naive/naive_context.h
+@@ -2,6 +2,7 @@
+ #ifndef NET_TOOLS_NAIVE_NAIVE_CONTEXT_H_
+ #define NET_TOOLS_NAIVE_NAIVE_CONTEXT_H_
+ #include <memory>
++#include "base/functional/callback_forward.h"
+ #include "base/memory/scoped_refptr.h"
+ namespace net {
+ struct NaiveConfig;
+@@ -9,11 +10,15 @@
+ class URLRequestContext;
+ class CertNetFetcherURLRequest;
+ class CertVerifier;
+-std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(NetLog* net_log);
++class URLRequestContextBuilder;
++using ConfigureContext = base::RepeatingCallback<void(URLRequestContextBuilder&)>;
++std::unique_ptr<URLRequestContext> BuildCertURLRequestContext(
++    NetLog* net_log, const ConfigureContext& configure = {});
+ std::unique_ptr<URLRequestContext> BuildURLRequestContext(
+     const NaiveConfig& config,
+     scoped_refptr<CertNetFetcherURLRequest> cert_net_fetcher,
+     NetLog* net_log, int proxy_chain_index = 0,
+-    std::unique_ptr<CertVerifier> verifier = nullptr);
++    std::unique_ptr<CertVerifier> verifier = nullptr,
++    const ConfigureContext& configure = {});
+ }
+ #endif

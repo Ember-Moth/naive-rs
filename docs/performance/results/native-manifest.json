@@ -1,0 +1,39 @@
+{
+  "abi": 2,
+  "archive_sha256": "c4dc03f5010fff6722bb667effd18f309b4e419a43d249cd8c1652dcaca42872",
+  "fingerprint": "eb987256e88360bba4892c75c1599f2593925f09ddb7d99f1dafdef91235dc53",
+  "frameworks": [
+    "CFNetwork.framework",
+    "CoreServices.framework",
+    "Foundation.framework",
+    "Network.framework",
+    "Security.framework",
+    "SystemConfiguration.framework",
+    "UniformTypeIdentifiers.framework",
+    "CoreFoundation.framework",
+    "CoreGraphics.framework",
+    "CoreText.framework",
+    "ApplicationServices.framework",
+    "AppKit.framework",
+    "IOKit.framework",
+    "OpenDirectory.framework",
+    "CryptoTokenKit.framework",
+    "LocalAuthentication.framework"
+  ],
+  "gn_args": "is_debug = false\nis_component_build = false\nis_clang = true\nis_cronet_build = true\nis_chrome_branded = true\nchrome_pgo_phase = 0\nuse_thin_lto = false\nsymbol_level = 0\ntreat_warnings_as_errors = false\nfatal_linker_warnings = false\nuse_sysroot = false\nuse_udev = false\nuse_aura = false\nuse_ozone = false\nuse_gio = false\nuse_glib = false\nuse_platform_icu_alternatives = true\nis_perfetto_embedder = true\ndisable_file_support = true\nenable_websockets = false\nuse_kerberos = false\nenable_mdns = false\nenable_reporting = false\ninclude_transport_security_state_preload_list = false\nenable_device_bound_sessions = false\nenable_bracketed_proxy_uris = true\nenable_quic_proxy_support = true\nenable_disk_cache_sql_backend = false\nuse_nss_certs = false\nuse_allocator_shim = false\nuse_partition_alloc_as_malloc = false\nenable_backup_ref_ptr_support = false\nenable_dangling_raw_ptr_checks = false\nuse_clang_modules = false\n\ntarget_os = \"mac\"\ntarget_cpu = \"arm64\"\nenable_dsyms = false\nmac_allow_system_xcode_for_official_builds_for_testing = true\n",
+  "libs": [
+    "resolv",
+    "bsm",
+    "pmenergy",
+    "pmsample"
+  ],
+  "native_profile": "portable",
+  "target": "aarch64-apple-darwin",
+  "upstream": {
+    "abi": 2,
+    "chromium": "154.0.8037.49",
+    "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+    "tag": "v154.0.8037.49-5",
+    "url": "https://github.com/klzgrad/naiveproxy.git"
+  }
+}

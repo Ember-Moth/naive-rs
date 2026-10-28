@@ -1,0 +1,66 @@
+--- a/src/components/embedder_support/user_agent_utils.cc
++++ b/src/components/embedder_support/user_agent_utils.cc
+@@ -44,7 +44,9 @@
+ #endif
+ 
+ #if BUILDFLAG(IS_IOS)
+-#include "ui/base/device_form_factor.h"
++namespace embedder_support {
++bool IsIOSUserAgentTablet();
++}
+ #endif
+ 
+ #if BUILDFLAG(IS_POSIX) && !BUILDFLAG(IS_MAC)
+@@ -331,7 +333,7 @@
+ #elif BUILDFLAG(IS_FUCHSIA)
+   return "";
+ #elif BUILDFLAG(IS_IOS)
+-  return ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET
++  return IsIOSUserAgentTablet()
+              ? "iPad; "
+              : "iPhone; ";
+ #else
+@@ -364,7 +366,7 @@
+ #elif BUILDFLAG(IS_LINUX)
+   return "X11; Linux x86_64";
+ #elif BUILDFLAG(IS_IOS)
+-  if (ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET) {
++  if (IsIOSUserAgentTablet()) {
+     return "iPad; CPU iPad OS 14_0 like Mac OS X";
+   }
+   return "iPhone; CPU iPhone OS 14_0 like Mac OS X";
+@@ -381,7 +383,7 @@
+ #if BUILDFLAG(IS_MAC)
+   cpuinfo = "Intel";
+ #elif BUILDFLAG(IS_IOS)
+-  cpuinfo = ui::GetDeviceFormFactor() == ui::DEVICE_FORM_FACTOR_TABLET
++  cpuinfo = IsIOSUserAgentTablet()
+                 ? "iPad"
+                 : "iPhone";
+ #elif BUILDFLAG(IS_WIN)
+--- a/src/components/embedder_support/BUILD.gn
++++ b/src/components/embedder_support/BUILD.gn
+@@ -16,6 +16,11 @@
+     "user_agent_utils.h",
+   ]
+ 
++  if (is_ios) {
++    sources += [ "user_agent_utils_ios.mm" ]
++    frameworks = [ "UIKit.framework" ]
++  }
++
+   deps = [
+     ":embedder_support",
+     "//build:branding_buildflags",
+--- /dev/null
++++ b/src/components/embedder_support/user_agent_utils_ios.mm
+@@ -0,0 +1,9 @@
++// Copyright 2026 naive-rs contributors. BSD-3-Clause.
++#import <UIKit/UIKit.h>
++
++namespace embedder_support {
++// Preserve the platform/tablet decision without depending on Chromium UI.
++bool IsIOSUserAgentTablet() {
++  return UIDevice.currentDevice.userInterfaceIdiom == UIUserInterfaceIdiomPad;
++}
++}  // namespace embedder_support

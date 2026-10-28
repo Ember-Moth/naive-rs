@@ -1,0 +1,40 @@
+--- a/src/base/BUILD.gn
++++ b/src/base/BUILD.gn
+@@ -112,7 +112,10 @@
+ 
+ _build_date_header = "$target_gen_dir/generated_build_date.h"
+ 
+-_enable_code_ordering = is_android && !is_component_build &&
++# The embedded Cronet-style archive has no Chromium library loader or its
++# code-ordering lifecycle. Avoid requiring a private linker script from the
++# Chromium source tree at a downstream application's final link.
++_enable_code_ordering = is_android && !is_component_build && !is_cronet_build &&
+                         (current_cpu == "arm" || current_cpu == "arm64" ||
+                          current_cpu == "x86" || current_cpu == "x64")
+ 
+--- a/src/base/logging.cc
++++ b/src/base/logging.cc
+@@ -102,7 +102,6 @@
+ #if BUILDFLAG(IS_ANDROID)
+ #include <android/log.h>
+ 
+-#include "base/android/jni_android.h"
+ #endif
+ 
+ #if BUILDFLAG(IS_CHROMEOS)
+@@ -704,13 +703,8 @@
+     base::debug::StackTrace stack_trace;
+     stream_ << std::endl;  // Newline to separate from log message.
+     stack_trace.OutputToStream(&stream_);
+-#if BUILDFLAG(IS_ANDROID)
+-    std::string java_stack = base::android::GetJavaStackTraceIfPresent();
+-    if (!java_stack.empty()) {
+-      stream_ << "Java stack (may interleave with native stack):\n";
+-      stream_ << java_stack << '\n';
+-    }
+-#endif
++    // This embedded native library does not initialize or link a JVM.
++    // The native stack above remains available on Android.
+     base::debug::TaskTrace task_trace;
+     if (!task_trace.empty()) {
+       task_trace.OutputToStream(&stream_);

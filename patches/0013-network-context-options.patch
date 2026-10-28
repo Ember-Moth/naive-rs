@@ -1,0 +1,145 @@
+--- a/src/net/tools/naive/naive_context.h
++++ b/src/net/tools/naive/naive_context.h
+@@ -2,10 +2,22 @@
+ #ifndef NET_TOOLS_NAIVE_NAIVE_CONTEXT_H_
+ #define NET_TOOLS_NAIVE_NAIVE_CONTEXT_H_
+ #include <memory>
++#include <optional>
++#include <string>
++#include <stdint.h>
+ #include "base/functional/callback_forward.h"
+ #include "base/memory/scoped_refptr.h"
+ namespace net {
+ struct NaiveConfig;
++struct NaiveContextOptions {
++  std::optional<int32_t> http2_stream_window;
++  std::optional<int32_t> http2_connection_window;
++  std::optional<uint64_t> quic_stream_window;
++  std::optional<uint64_t> quic_session_window;
++  std::string quic_congestion;
++  std::string ech_host;
++  int ech_mode = -1;
++};
+ class NetLog;
+ class URLRequestContext;
+ class CertNetFetcherURLRequest;
+@@ -19,6 +31,7 @@
+     scoped_refptr<CertNetFetcherURLRequest> cert_net_fetcher,
+     NetLog* net_log, int proxy_chain_index = 0,
+     std::unique_ptr<CertVerifier> verifier = nullptr,
+-    const ConfigureContext& configure = {});
++    const ConfigureContext& configure = {},
++    const NaiveContextOptions& options = {});
+ }
+ #endif
+--- a/src/net/tools/naive/naive_context.cc
++++ b/src/net/tools/naive/naive_context.cc
+@@ -59,6 +59,7 @@
+ #include "net/proxy_resolution/proxy_config_service_fixed.h"
+ #include "net/proxy_resolution/proxy_config_with_annotation.h"
+ #include "net/quic/quic_context.h"
++#include "net/third_party/quiche/src/quiche/quic/core/crypto/crypto_protocol.h"
+ #include "net/socket/client_socket_pool.h"
+ #include "net/socket/client_socket_pool_manager.h"
+ #include "net/socket/ssl_client_socket.h"
+@@ -117,7 +118,8 @@
+     NetLog* net_log,
+     int proxy_chain_index,
+     std::unique_ptr<CertVerifier> verifier,
+-    const ConfigureContext& configure) {
++    const ConfigureContext& configure,
++    const NaiveContextOptions& options) {
+   URLRequestContextBuilder builder;
+ 
+   builder.DisableHttpCache();
+@@ -147,9 +149,9 @@
+   constexpr int kTypicalWindow = kMaxBdpMB * 2 * 1024 * 1024;
+   HttpNetworkSessionParams http_network_session_params;
+   http_network_session_params.spdy_session_max_recv_window_size =
+-      kTypicalWindow * 2;
++      options.http2_connection_window.value_or(kTypicalWindow * 2);
+   http_network_session_params
+-      .http2_settings[spdy::SETTINGS_INITIAL_WINDOW_SIZE] = kTypicalWindow;
++      .http2_settings[spdy::SETTINGS_INITIAL_WINDOW_SIZE] = options.http2_stream_window.value_or(kTypicalWindow);
+   builder.set_http_network_session_params(http_network_session_params);
+ 
+   builder.set_net_log(net_log);
+@@ -188,7 +190,10 @@
+   struct MySSLConfigService : public SSLConfigService {
+     SSLContextConfig config;
+ 
+-    explicit MySSLConfigService(bool no_post_quantum) {
++    std::string ech_host;
++    int ech_mode;
++    explicit MySSLConfigService(bool no_post_quantum, const NaiveContextOptions& options)
++        : ech_host(options.ech_host), ech_mode(options.ech_mode) {
+ #if BUILDFLAG(CHROME_ROOT_STORE_SUPPORTED)
+       // Copied from chrome/browser/ssl/ssl_config_service_manager.cc
+       if (base::FeatureList::IsEnabled(net::features::kTLSTrustAnchorIDs)) {
+@@ -220,8 +225,9 @@
+ 
+     SSLContextConfig GetSSLContextConfig() override { return config; }
+ 
+-    EchMode GetEchMode(std::string_view) const override {
+-      return EchMode::kOpportunistic;
++    EchMode GetEchMode(std::string_view host) const override {
++      return host == ech_host && ech_mode >= 0 ? static_cast<EchMode>(ech_mode)
++                                              : EchMode::kOpportunistic;
+     }
+ 
+     bool CanShareConnectionWithClientCerts(std::string_view) const override {
+@@ -229,12 +235,18 @@
+     }
+   };
+   builder.set_ssl_config_service(
+-      std::make_unique<MySSLConfigService>(config.no_post_quantum == true));
++      std::make_unique<MySSLConfigService>(config.no_post_quantum == true, options));
+ 
+   // The QUIC session pool copies these parameters during Build().
+   auto quic_context = std::make_unique<QuicContext>();
+   auto* quic = quic_context->params();
+   quic->additional_proxy_packet_length = 0;
++  if (options.quic_stream_window) quic->initial_stream_receive_window = *options.quic_stream_window;
++  if (options.quic_session_window) quic->initial_session_receive_window = *options.quic_session_window;
++  if (options.quic_congestion == "bbr") quic->client_connection_options.push_back(quic::kTBBR);
++  else if (options.quic_congestion == "bbr2") quic->client_connection_options.push_back(quic::kB2ON);
++  else if (options.quic_congestion == "cubic") quic->client_connection_options.push_back(quic::kCQBC);
++  else if (options.quic_congestion == "reno") quic->client_connection_options.push_back(quic::kRENO);
+   if (!config.proxy_configs.empty()) {
+     const auto& config2 = config.proxy_configs.at(proxy_chain_index);
+     // Allow these hosts to use locally trusted certificate roots.
+--- a/src/net/quic/quic_context.h
++++ b/src/net/quic/quic_context.h
+@@ -111,6 +111,8 @@
+   ~QuicParams();
+ 
+   // QUIC runtime configuration options.
++  uint64_t initial_stream_receive_window = 6 * 1024 * 1024;
++  uint64_t initial_session_receive_window = 15 * 1024 * 1024;
+ 
+   // Versions of QUIC which may be used.
+   quic::ParsedQuicVersionVector supported_versions =
+--- a/src/net/quic/quic_context.cc
++++ b/src/net/quic/quic_context.cc
+@@ -16,10 +16,6 @@
+ namespace net {
+ 
+ namespace {
+-
+-// The maximum receive window sizes for QUIC sessions and streams.
+-const int32_t kQuicSessionMaxRecvWindowSize = 15 * 1024 * 1024;  // 15 MB
+-const int32_t kQuicStreamMaxRecvWindowSize = 6 * 1024 * 1024;    // 6 MB
+ 
+ // Set the maximum number of undecryptable packets the connection will store.
+ const int32_t kMaxUndecryptablePackets = 100;
+@@ -93,8 +89,8 @@
+   config.SetClientConnectionOptions(params.client_connection_options);
+   config.set_max_undecryptable_packets(kMaxUndecryptablePackets);
+   config.SetInitialSessionFlowControlWindowToSend(
+-      kQuicSessionMaxRecvWindowSize);
+-  config.SetInitialStreamFlowControlWindowToSend(kQuicStreamMaxRecvWindowSize);
++      params.initial_session_receive_window);
++  config.SetInitialStreamFlowControlWindowToSend(params.initial_stream_receive_window);
+   config.SetBytesForConnectionIdToSend(0);
+   return config;
+ }

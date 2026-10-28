@@ -1,0 +1,44 @@
+diff --git a/src/net/cert/cert_verify_proc.cc b/src/net/cert/cert_verify_proc.cc
+--- a/src/net/cert/cert_verify_proc.cc
++++ b/src/net/cert/cert_verify_proc.cc
+@@ -7,10 +7,14 @@
+ #include <stdint.h>
+ 
+ #include <algorithm>
++#include <array>
++#include <mutex>
+ #include <optional>
+ #include <string_view>
+ 
+ #include "base/containers/flat_set.h"
++#include "base/feature_list.h"
++#include "base/no_destructor.h"
+ #include "base/containers/span.h"
+ #include "base/memory/raw_span.h"
+ #include "base/metrics/histogram.h"
+@@ -413,6 +417,25 @@
+     const ChromeRootStoreMtcMetadata* root_store_mtc_metadata,
+     const InstanceParams instance_params,
+     std::optional<network_time::TimeTracker> time_tracker) {
++  if (!root_store_data) {
++    // Compiled roots are immutable. Share only their parsed representation,
++    // not per-verifier trust decisions, user anchors, or verification caches.
++    // Explicit component-update data always bypasses this cache. Preserve the
++    // feature switches consulted while loading compiled MTC signer metadata.
++    struct CompiledRootsCache {
++      std::array<std::once_flag, 4> initialized;
++      std::array<std::unique_ptr<ChromeRootStoreData>, 4> roots;
++    };
++    static base::NoDestructor<CompiledRootsCache> cache;
++    const size_t index =
++        (base::FeatureList::IsEnabled(features::kVerifyMTCs) ? 1 : 0) |
++        (base::FeatureList::IsEnabled(features::kTestRootStore) ? 2 : 0);
++    std::call_once(cache->initialized[index], [index] {
++      cache->roots[index] = std::make_unique<ChromeRootStoreData>(
++          ChromeRootStoreData::CreateFromCompiledRootStore());
++    });
++    root_store_data = cache->roots[index].get();
++  }
+   std::unique_ptr<TrustStoreChrome> chrome_root =
+       std::make_unique<TrustStoreChrome>(root_store_data,
+                                          root_store_mtc_metadata);

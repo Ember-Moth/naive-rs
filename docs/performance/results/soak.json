@@ -1,0 +1,1306 @@
+{
+  "host": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "date": "2026-10-27T23:44:03-0700",
+  "note": "loopback; four Rust executor workers; Caddy GOMAXPROCS=4; echo GOMAXPROCS=2; one-way payload throughput",
+  "variants": {
+    "final": "target/perf/final"
+  },
+  "variant_sha256": {
+    "final": "e5f57ecd254f34eb18ef37ad8fdda6be851f8302fdc7dc8c76a3c6eb20e4ed3b"
+  },
+  "proxy_host": "127.0.0.1",
+  "bytes_scale": 1,
+  "iterations_scale": 1,
+  "repeats": 1,
+  "runs": [
+    {
+      "block": 4096,
+      "chromium": "154.0.8037.49",
+      "clients": 4,
+      "cold_init_ms": 6.2238750000000005,
+      "connect_p50_ms": 16.910208,
+      "connect_p99_ms": 18.840167,
+      "connections": 32,
+      "cpu_ms_per_mib": 11.810487128502114,
+      "cpu_seconds": 211.53011500000002,
+      "memory_samples": [
+        {
+          "buffers": {
+            "allocations": 66,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22462464,
+          "second": 1
+        },
+        {
+          "buffers": {
+            "allocations": 130,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 2
+        },
+        {
+          "buffers": {
+            "allocations": 194,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 3
+        },
+        {
+          "buffers": {
+            "allocations": 258,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 4
+        },
+        {
+          "buffers": {
+            "allocations": 322,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 5
+        },
+        {
+          "buffers": {
+            "allocations": 386,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 6
+        },
+        {
+          "buffers": {
+            "allocations": 450,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 7
+        },
+        {
+          "buffers": {
+            "allocations": 516,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 8
+        },
+        {
+          "buffers": {
+            "allocations": 580,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 9
+        },
+        {
+          "buffers": {
+            "allocations": 644,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 10
+        },
+        {
+          "buffers": {
+            "allocations": 708,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 11
+        },
+        {
+          "buffers": {
+            "allocations": 772,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 12
+        },
+        {
+          "buffers": {
+            "allocations": 836,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 13
+        },
+        {
+          "buffers": {
+            "allocations": 900,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 14
+        },
+        {
+          "buffers": {
+            "allocations": 966,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 15
+        },
+        {
+          "buffers": {
+            "allocations": 1030,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 16
+        },
+        {
+          "buffers": {
+            "allocations": 1094,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 17
+        },
+        {
+          "buffers": {
+            "allocations": 1158,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 18
+        },
+        {
+          "buffers": {
+            "allocations": 1222,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 19
+        },
+        {
+          "buffers": {
+            "allocations": 1286,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 20
+        },
+        {
+          "buffers": {
+            "allocations": 1350,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22495232,
+          "second": 21
+        },
+        {
+          "buffers": {
+            "allocations": 1416,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22511616,
+          "second": 22
+        },
+        {
+          "buffers": {
+            "allocations": 1480,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22511616,
+          "second": 23
+        },
+        {
+          "buffers": {
+            "allocations": 1544,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22511616,
+          "second": 24
+        },
+        {
+          "buffers": {
+            "allocations": 1608,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 25
+        },
+        {
+          "buffers": {
+            "allocations": 1672,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 26
+        },
+        {
+          "buffers": {
+            "allocations": 1736,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 27
+        },
+        {
+          "buffers": {
+            "allocations": 1802,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 28
+        },
+        {
+          "buffers": {
+            "allocations": 1866,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 29
+        },
+        {
+          "buffers": {
+            "allocations": 1930,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 30
+        },
+        {
+          "buffers": {
+            "allocations": 1994,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 31
+        },
+        {
+          "buffers": {
+            "allocations": 2058,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 32
+        },
+        {
+          "buffers": {
+            "allocations": 2124,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 33
+        },
+        {
+          "buffers": {
+            "allocations": 2188,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22528000,
+          "second": 34
+        },
+        {
+          "buffers": {
+            "allocations": 2252,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 35
+        },
+        {
+          "buffers": {
+            "allocations": 2316,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 36
+        },
+        {
+          "buffers": {
+            "allocations": 2380,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 37
+        },
+        {
+          "buffers": {
+            "allocations": 2444,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 38
+        },
+        {
+          "buffers": {
+            "allocations": 2508,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 39
+        },
+        {
+          "buffers": {
+            "allocations": 2574,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 40
+        },
+        {
+          "buffers": {
+            "allocations": 2638,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 41
+        },
+        {
+          "buffers": {
+            "allocations": 2702,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 42
+        },
+        {
+          "buffers": {
+            "allocations": 2766,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 43
+        },
+        {
+          "buffers": {
+            "allocations": 2830,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 44
+        },
+        {
+          "buffers": {
+            "allocations": 2894,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 45
+        },
+        {
+          "buffers": {
+            "allocations": 2960,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22544384,
+          "second": 46
+        },
+        {
+          "buffers": {
+            "allocations": 3024,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 47
+        },
+        {
+          "buffers": {
+            "allocations": 3088,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 48
+        },
+        {
+          "buffers": {
+            "allocations": 3152,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 49
+        },
+        {
+          "buffers": {
+            "allocations": 3216,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 50
+        },
+        {
+          "buffers": {
+            "allocations": 3280,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 51
+        },
+        {
+          "buffers": {
+            "allocations": 3344,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 52
+        },
+        {
+          "buffers": {
+            "allocations": 3408,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 53
+        },
+        {
+          "buffers": {
+            "allocations": 3474,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 54
+        },
+        {
+          "buffers": {
+            "allocations": 3538,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 55
+        },
+        {
+          "buffers": {
+            "allocations": 3602,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 56
+        },
+        {
+          "buffers": {
+            "allocations": 3666,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 57
+        },
+        {
+          "buffers": {
+            "allocations": 3730,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 58
+        },
+        {
+          "buffers": {
+            "allocations": 3794,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 22560768,
+          "second": 59
+        },
+        {
+          "buffers": {
+            "allocations": 3840,
+            "live_buffers": 0,
+            "live_capacity": 0,
+            "peak_capacity": 262144
+          },
+          "rss": 22593536,
+          "second": 60
+        }
+      ],
+      "mode": "soak",
+      "native_after_shutdown": {
+        "allocations": 3840,
+        "live_buffers": 0,
+        "live_capacity": 0,
+        "peak_capacity": 262144
+      },
+      "native_buffers": {
+        "allocations": 3840,
+        "live_buffers": 0,
+        "live_capacity": 0,
+        "peak_capacity": 262144
+      },
+      "payload_bytes": 18780377088,
+      "payload_mib_per_second": 297.5750403380663,
+      "peak_rss_bytes": 22593536,
+      "rss_ready_bytes": 21987328,
+      "seconds": 60.18772025,
+      "variant": "final",
+      "protocol": "https",
+      "case": "soak-60",
+      "repeat": 0,
+      "io_workers": 4,
+      "workload": {
+        "name": "soak-60",
+        "mode": "soak",
+        "connections": 32,
+        "clients": 4,
+        "block": 4096,
+        "seconds": 60
+      }
+    },
+    {
+      "block": 4096,
+      "chromium": "154.0.8037.49",
+      "clients": 4,
+      "cold_init_ms": 5.426875,
+      "connect_p50_ms": 20.249291999999997,
+      "connect_p99_ms": 20.715792,
+      "connections": 32,
+      "cpu_ms_per_mib": 18.827684249857583,
+      "cpu_seconds": 144.08091299999998,
+      "memory_samples": [
+        {
+          "buffers": {
+            "allocations": 66,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 262144
+          },
+          "rss": 24215552,
+          "second": 1
+        },
+        {
+          "buffers": {
+            "allocations": 130,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24346624,
+          "second": 2
+        },
+        {
+          "buffers": {
+            "allocations": 194,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24363008,
+          "second": 3
+        },
+        {
+          "buffers": {
+            "allocations": 258,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24363008,
+          "second": 4
+        },
+        {
+          "buffers": {
+            "allocations": 322,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24363008,
+          "second": 5
+        },
+        {
+          "buffers": {
+            "allocations": 386,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24363008,
+          "second": 6
+        },
+        {
+          "buffers": {
+            "allocations": 450,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24379392,
+          "second": 7
+        },
+        {
+          "buffers": {
+            "allocations": 514,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 8
+        },
+        {
+          "buffers": {
+            "allocations": 580,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 9
+        },
+        {
+          "buffers": {
+            "allocations": 644,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24412160,
+          "second": 10
+        },
+        {
+          "buffers": {
+            "allocations": 708,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24379392,
+          "second": 11
+        },
+        {
+          "buffers": {
+            "allocations": 772,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24379392,
+          "second": 12
+        },
+        {
+          "buffers": {
+            "allocations": 836,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24379392,
+          "second": 13
+        },
+        {
+          "buffers": {
+            "allocations": 900,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24379392,
+          "second": 14
+        },
+        {
+          "buffers": {
+            "allocations": 964,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24379392,
+          "second": 15
+        },
+        {
+          "buffers": {
+            "allocations": 1030,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 16
+        },
+        {
+          "buffers": {
+            "allocations": 1094,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 17
+        },
+        {
+          "buffers": {
+            "allocations": 1158,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 18
+        },
+        {
+          "buffers": {
+            "allocations": 1222,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 19
+        },
+        {
+          "buffers": {
+            "allocations": 1286,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24395776,
+          "second": 20
+        },
+        {
+          "buffers": {
+            "allocations": 1351,
+            "live_buffers": 63,
+            "live_capacity": 258048,
+            "peak_capacity": 266240
+          },
+          "rss": 24412160,
+          "second": 21
+        },
+        {
+          "buffers": {
+            "allocations": 1416,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 22
+        },
+        {
+          "buffers": {
+            "allocations": 1480,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 23
+        },
+        {
+          "buffers": {
+            "allocations": 1544,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 24
+        },
+        {
+          "buffers": {
+            "allocations": 1608,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 25
+        },
+        {
+          "buffers": {
+            "allocations": 1672,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 26
+        },
+        {
+          "buffers": {
+            "allocations": 1736,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 27
+        },
+        {
+          "buffers": {
+            "allocations": 1800,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 28
+        },
+        {
+          "buffers": {
+            "allocations": 1866,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 29
+        },
+        {
+          "buffers": {
+            "allocations": 1930,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 30
+        },
+        {
+          "buffers": {
+            "allocations": 1994,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 31
+        },
+        {
+          "buffers": {
+            "allocations": 2058,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24428544,
+          "second": 32
+        },
+        {
+          "buffers": {
+            "allocations": 2122,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 33
+        },
+        {
+          "buffers": {
+            "allocations": 2186,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 34
+        },
+        {
+          "buffers": {
+            "allocations": 2250,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 35
+        },
+        {
+          "buffers": {
+            "allocations": 2314,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 36
+        },
+        {
+          "buffers": {
+            "allocations": 2380,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 37
+        },
+        {
+          "buffers": {
+            "allocations": 2444,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 38
+        },
+        {
+          "buffers": {
+            "allocations": 2508,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 39
+        },
+        {
+          "buffers": {
+            "allocations": 2572,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 40
+        },
+        {
+          "buffers": {
+            "allocations": 2636,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 41
+        },
+        {
+          "buffers": {
+            "allocations": 2700,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 42
+        },
+        {
+          "buffers": {
+            "allocations": 2764,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 43
+        },
+        {
+          "buffers": {
+            "allocations": 2828,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 44
+        },
+        {
+          "buffers": {
+            "allocations": 2892,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24444928,
+          "second": 45
+        },
+        {
+          "buffers": {
+            "allocations": 2958,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 46
+        },
+        {
+          "buffers": {
+            "allocations": 3022,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 47
+        },
+        {
+          "buffers": {
+            "allocations": 3086,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 48
+        },
+        {
+          "buffers": {
+            "allocations": 3150,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 49
+        },
+        {
+          "buffers": {
+            "allocations": 3214,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 50
+        },
+        {
+          "buffers": {
+            "allocations": 3278,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 51
+        },
+        {
+          "buffers": {
+            "allocations": 3342,
+            "live_buffers": 62,
+            "live_capacity": 253952,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 52
+        },
+        {
+          "buffers": {
+            "allocations": 3408,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 53
+        },
+        {
+          "buffers": {
+            "allocations": 3472,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 54
+        },
+        {
+          "buffers": {
+            "allocations": 3536,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 55
+        },
+        {
+          "buffers": {
+            "allocations": 3600,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 56
+        },
+        {
+          "buffers": {
+            "allocations": 3664,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24461312,
+          "second": 57
+        },
+        {
+          "buffers": {
+            "allocations": 3728,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24477696,
+          "second": 58
+        },
+        {
+          "buffers": {
+            "allocations": 3792,
+            "live_buffers": 64,
+            "live_capacity": 262144,
+            "peak_capacity": 266240
+          },
+          "rss": 24477696,
+          "second": 59
+        },
+        {
+          "buffers": {
+            "allocations": 3840,
+            "live_buffers": 0,
+            "live_capacity": 0,
+            "peak_capacity": 266240
+          },
+          "rss": 24494080,
+          "second": 60
+        }
+      ],
+      "mode": "soak",
+      "native_after_shutdown": {
+        "allocations": 3840,
+        "live_buffers": 0,
+        "live_capacity": 0,
+        "peak_capacity": 266240
+      },
+      "native_buffers": {
+        "allocations": 3840,
+        "live_buffers": 0,
+        "live_capacity": 0,
+        "peak_capacity": 266240
+      },
+      "payload_bytes": 8024342528,
+      "payload_mib_per_second": 127.14255216708237,
+      "peak_rss_bytes": 24494080,
+      "rss_ready_bytes": 22986752,
+      "seconds": 60.189206874999996,
+      "variant": "final",
+      "protocol": "quic",
+      "case": "soak-60",
+      "repeat": 0,
+      "io_workers": 4,
+      "workload": {
+        "name": "soak-60",
+        "mode": "soak",
+        "connections": 32,
+        "clients": 4,
+        "block": 4096,
+        "seconds": 60
+      }
+    }
+  ]
+}
