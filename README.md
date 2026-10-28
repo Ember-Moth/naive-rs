@@ -18,7 +18,8 @@ Certificate callbacks and per-host direct ECH are described in
 
 ## Build
 
-Prerequisites: Rust 1.85+, Python 3, Ninja, Git, curl, tar and unzip. macOS needs
+Prerequisites: Rust 1.85+ for the core and monoio adapter, Rust 1.93+ for the compio
+adapter, Python 3, Ninja, Git, curl, tar and unzip. macOS needs
 Xcode. The native preparation command downloads the pinned Chromium Clang/GN
 toolchain and required target headers/libraries. Some upstream setup paths also
 fetch their PGO bundle. Ordinary `cargo build` does not

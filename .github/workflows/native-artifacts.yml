@@ -6,6 +6,10 @@ on:
         description: 'Publish this version after all builds pass; leave empty for artifacts only'
         required: false
         type: string
+      promote_run:
+        description: 'Optional completed native build run to reuse; code/dependencies/tests must match'
+        required: false
+        type: string
   push:
     tags: ['v*']
 
@@ -14,6 +18,7 @@ permissions:
 
 jobs:
   build:
+    if: inputs.promote_run == ''
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -130,7 +135,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   release:
-    if: github.ref_type == 'tag' || inputs.release_version != ''
+    if: always() && (github.ref_type == 'tag' || inputs.release_version != '') && (needs.build.result == 'success' || (inputs.promote_run != '' && needs.build.result == 'skipped'))
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -138,11 +143,35 @@ jobs:
       actions: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate publication version
+        env:
+          RELEASE_VERSION: ${{ inputs.release_version }}
+        run: |
+          python3 - <<'PY'
+          import os, tomllib
+          version = tomllib.load(open('Cargo.toml', 'rb'))['workspace']['package']['version']
+          expected = 'v' + version
+          requested = os.environ['GITHUB_REF_NAME'] if os.environ['GITHUB_REF_TYPE'] == 'tag' else 'v' + os.environ['RELEASE_VERSION']
+          assert requested == expected, 'publication version must match Cargo version'
+          PY
+      - name: Validate source run for promotion
+        if: inputs.promote_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.promote_run }}
+        run: python3 tools/release-assets.py run "$SOURCE_RUN"
       - uses: actions/download-artifact@v4
         with:
           pattern: native-*
           path: artifacts
           merge-multiple: true
+          run-id: ${{ inputs.promote_run || github.run_id }}
+          github-token: ${{ github.token }}
+      - name: Verify every release bundle
+        run: python3 tools/release-assets.py assets artifacts
       - name: Publish immutable versioned native archives
         env:
           GH_TOKEN: ${{ github.token }}

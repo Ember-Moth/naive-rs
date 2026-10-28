@@ -74,3 +74,13 @@ Version-specific release notes live in `docs/releases/`. Existing releases are n
 overwritten by the workflow. All platform jobs compile and link without launching test binaries or full
 apps. Package validation checks installation, rejection cases and consumer
 linking; it does not start a simulator or VM.
+
+For documentation, CI or minimum-Rust-version corrections that do not change
+code, dependencies or tests, `promote_run` can reuse a previous complete native
+matrix. The workflow requires every target job to have passed, compares the
+source snapshots (only `rust-version` metadata may differ in Cargo manifests),
+then validates each archive through the normal checksum/manifest installer.
+The destination commit must also have successful Library CI before publication.
+Library CI can likewise accept a `native_run` when dispatched manually: it
+validates and installs that run's macOS arm64 SDK against the current native
+fingerprint, then runs the normal Rust, MSRV and runtime checks.

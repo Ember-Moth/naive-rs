@@ -2,7 +2,7 @@
 name = "naive-compio"
 version.workspace = true
 edition.workspace = true
-rust-version = "1.88"
+rust-version = "1.93"
 license.workspace = true
 repository.workspace = true
 description = "Optional completion IO traits for naive-rs"
