@@ -401,7 +401,19 @@ fn run() -> Result<()> {
     let mut hasher = Sha256::new();
     let mut file = fs::File::open(&archive)?;
     io::copy(&mut file, &mut hasher)?;
-    let libs = description(&src, &out, "libs")?;
+    let mut libs = description(&src, &out, "libs")?;
+    if os == "win" {
+        // GN supplies the MSVC C++ runtime used by libc++ exception_ptr through
+        // /DEFAULTLIB, so it is absent from the ordinary system-library list.
+        for flag in description(&src, &out, "ldflags")? {
+            let Some(library) = flag.strip_prefix("/DEFAULTLIB:") else {
+                continue;
+            };
+            if !libs.iter().any(|existing| existing == library) {
+                libs.push(library.to_owned());
+            }
+        }
+    }
     let frameworks = if os == "mac" || os == "ios" {
         description(&src, &out, "frameworks")?
     } else {
