@@ -34,7 +34,9 @@ jobs:
       - name: Check minimum supported Rust version
         run: |
           rustup toolchain install 1.85.0 --profile minimal
-          cargo +1.85.0 check --workspace --all-targets --all-features --locked
+          cargo +1.85.0 check -p naive-rs -p naive-sys -p naive-monoio --all-targets --all-features --locked
+          rustup toolchain install 1.88.0 --profile minimal
+          cargo +1.88.0 check -p naive-compio --all-targets --all-features --locked
       - uses: actions/setup-go@v6
         with:
           go-version-file: tests/caddy/go.mod
